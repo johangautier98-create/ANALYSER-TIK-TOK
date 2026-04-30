@@ -183,9 +183,14 @@
         <div class="thumb-layout">
           <div class="thumb-panel">
             <h3>1. Source image</h3>
-            <div class="mini-upload" onclick="document.getElementById('thumbVideoInput').click()">🎥 Choisir une vidéo pour récupérer une frame</div>
+            <div id="thumbDropZone" class="mini-upload thumb-drop" onclick="document.getElementById('thumbAnyInput').click()" ondragover="thumbDragOver(event)" ondragleave="thumbDragLeave(event)" ondrop="thumbDrop(event)">
+              <strong>🎬 Glisse ici une vidéo OU une image</strong>
+              <span>MP4/MOV pour capturer une frame · PNG/JPG pour créer directement</span>
+            </div>
+            <input id="thumbAnyInput" class="hidden-input" type="file" accept="video/*,image/*" onchange="prepareThumbSource(this.files[0])" />
+            <div class="mini-upload mini-choice" onclick="document.getElementById('thumbVideoInput').click()">🎥 Choisir une vidéo pour récupérer une frame</div>
             <input id="thumbVideoInput" class="hidden-input" type="file" accept="video/*" onchange="prepareThumbVideo(this.files[0])" />
-            <div class="mini-upload" onclick="document.getElementById('thumbImageInput').click()">🖼️ Importer une image PNG/JPG</div>
+            <div class="mini-upload mini-choice" onclick="document.getElementById('thumbImageInput').click()">🖼️ Importer une image PNG/JPG</div>
             <input id="thumbImageInput" class="hidden-input" type="file" accept="image/*" onchange="prepareThumbImage(this.files[0])" />
             <video id="thumbVideo" class="hidden" muted playsinline></video>
             <label class="range-label">Choisir le moment de la vidéo <input id="thumbTime" type="range" min="0" max="100" value="35" oninput="seekThumbFrame()" /></label>
