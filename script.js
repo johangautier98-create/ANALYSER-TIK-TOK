@@ -20,18 +20,6 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPlans();
   renderIdeas();
   initThumbnail();
-
-  // Si les clés sont déjà enregistrées et que Patrick était déjà entré dans l'app,
-  // un simple F5 reste sur le dashboard au lieu de revenir sur la page connexion.
-  const k = getKeys();
-  if (localStorage.getItem('TA_APP_UNLOCKED') === '1' && (k.openai || k.gemini)) {
-    setTimeout(() => {
-      enterApp(false);
-      const lastPage = localStorage.getItem('TA_LAST_PAGE') || 'analyze';
-      const btn = document.querySelector(`[data-page="${lastPage}"]`) || document.querySelector('[data-page="analyze"]');
-      switchPage(lastPage, btn);
-    }, 80);
-  }
 });
 
 function qs(id){return document.getElementById(id)}
@@ -51,14 +39,14 @@ async function connectAPIs(){
   }catch(e){
     setApiStatus('✅ Clés enregistrées. Le test distant n’a pas répondu, mais tu peux entrer dans l’application.','ok');
   }
-  localStorage.setItem('TA_APP_UNLOCKED','1'); qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
+  qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
 }
 function setApiStatus(msg,type){qs('apiStatus').textContent=msg; qs('apiStatus').className='status-box '+(type==='ok'?'status-ok':type==='error'?'status-error':'')}
 function updateApiLabels(){const k=getKeys(); qs('openaiLabel').textContent=k.openai?'Oui':'Non'; qs('geminiLabel').textContent=k.gemini?'Oui':'Non'; qs('openaiDot').classList.toggle('ok',!!k.openai); qs('geminiDot').classList.toggle('ok',!!k.gemini)}
-function enterApp(save=true){ if(save) localStorage.setItem('TA_APP_UNLOCKED','1'); qs('loginScreen').classList.add('hidden'); qs('app').classList.remove('hidden'); updateApiLabels(); renderThumbnail();}
-function backToLogin(){localStorage.removeItem('TA_APP_UNLOCKED'); qs('app').classList.add('hidden'); qs('loginScreen').classList.remove('hidden');}
+function enterApp(){qs('loginScreen').classList.add('hidden'); qs('app').classList.remove('hidden'); updateApiLabels(); renderThumbnail();}
+function backToLogin(){qs('app').classList.add('hidden'); qs('loginScreen').classList.remove('hidden');}
 
-function switchPage(page, btn){localStorage.setItem('TA_LAST_PAGE', page); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); qs('page-'+page).classList.add('active'); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); qs('pageTitle').textContent=titles[page][0]; qs('pageSub').textContent=titles[page][1]; if(page==='thumbnails') setTimeout(renderThumbnail,50)}
+function switchPage(page, btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); qs('page-'+page).classList.add('active'); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); qs('pageTitle').textContent=titles[page][0]; qs('pageSub').textContent=titles[page][1]; if(page==='thumbnails') setTimeout(renderThumbnail,50)}
 function dragOver(e){e.preventDefault(); qs('dropZone').classList.add('drag')}
 function dragLeave(e){e.preventDefault(); qs('dropZone').classList.remove('drag')}
 function dropVideo(e){e.preventDefault(); qs('dropZone').classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) pickVideo(f)}
@@ -66,49 +54,28 @@ function pickVideo(file){if(!file||!file.type.startsWith('video/')){alert('Chois
 function removeVideo(){selectedVideo=null; qs('videoPreview').classList.add('hidden'); qs('contextPanel').classList.add('hidden'); qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Dépose d’abord une vidéo.'; qs('results').classList.add('hidden')}
 function resetAnalyzer(){removeVideo(); qs('results').innerHTML=''; switchPage('analyze', document.querySelector('[data-page="analyze"]'));}
 
-async function extractFrames(file, count=2){
-  // Version stable : on ne bloque jamais l'application si la vidéo est longue ou si le navigateur refuse de lire une frame.
+async function extractFrames(file, count=4){
   return new Promise((resolve)=>{
-    let finished=false;
-    let url='';
-    const done=(frames=[])=>{
-      if(finished) return;
-      finished=true;
-      try{ if(url) URL.revokeObjectURL(url); }catch(e){}
-      resolve(frames);
-    };
-    const maxWait = setTimeout(()=>done([]), 2200);
-    try{
-      const video=document.createElement('video');
-      url=URL.createObjectURL(file);
-      const frames=[];
-      video.preload='metadata'; video.muted=true; video.playsInline=true; video.src=url;
-      video.onloadedmetadata=()=>{
-        const duration=Number.isFinite(video.duration) ? video.duration : 60;
-        const times=[Math.min(1.2, Math.max(.2,duration*.05)), Math.min(duration-0.2, Math.max(1,duration*.55))].slice(0,count);
-        const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d');
-        let idx=0;
-        const grab=()=>{
-          if(idx>=times.length){ clearTimeout(maxWait); done(frames); return; }
-          const localTimeout=setTimeout(()=>{ idx++; grab(); }, 650);
-          video.onseeked=()=>{
-            clearTimeout(localTimeout);
-            try{
-              canvas.width=220; canvas.height=390;
-              const vw=video.videoWidth||220, vh=video.videoHeight||390;
-              const scale=Math.max(canvas.width/vw,canvas.height/vh);
-              const w=vw*scale,h=vh*scale,x=(canvas.width-w)/2,y=(canvas.height-h)/2;
-              ctx.fillStyle='#111';ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(video,x,y,w,h);
-              frames.push({time:Math.round(times[idx]), image:canvas.toDataURL('image/jpeg',0.45)});
-            }catch(e){}
-            idx++; grab();
-          };
-          try{ video.currentTime=times[idx]; }catch(e){ idx++; grab(); }
-        };
-        grab();
+    const video=document.createElement('video'); const url=URL.createObjectURL(file); const frames=[];
+    video.preload='metadata'; video.muted=true; video.playsInline=true; video.src=url;
+    video.onloadedmetadata=async()=>{
+      const duration=video.duration || parseInt(qs('durationSelect').value||60,10); const times=[0.7,0.18,0.48,0.82].slice(0,count).map(p=>Math.min(duration-0.2,Math.max(0.1,duration*p)));
+      const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d');
+      let idx=0;
+      const grab=()=>{
+        if(idx>=times.length){URL.revokeObjectURL(url); resolve(frames); return;}
+        video.currentTime=times[idx];
       };
-      video.onerror=()=>{ clearTimeout(maxWait); done([]); };
-    }catch(e){ clearTimeout(maxWait); done([]); }
+      video.onseeked=()=>{
+        canvas.width=360; canvas.height=640;
+        const vw=video.videoWidth||360, vh=video.videoHeight||640;
+        const scale=Math.max(canvas.width/vw,canvas.height/vh); const w=vw*scale,h=vh*scale,x=(canvas.width-w)/2,y=(canvas.height-h)/2;
+        ctx.fillStyle='#111';ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(video,x,y,w,h);
+        frames.push({time:Math.round(times[idx]), image:canvas.toDataURL('image/jpeg',0.72)}); idx++; grab();
+      };
+      grab();
+    };
+    video.onerror=()=>{URL.revokeObjectURL(url); resolve([])};
   });
 }
 
@@ -116,31 +83,19 @@ async function analyzeVideo(){
   if(!selectedVideo){alert('Ajoute une vidéo avant.'); return;}
   const k=getKeys();
   qs('results').classList.remove('hidden');
-  qs('results').innerHTML=`<div class="vy-video-list"><article class="vy-video-card analyzing-card">
-    <div class="vy-card-main"><div class="vy-thumb-wrap"><div class="vy-thumb empty">Analyse...</div></div>
-    <div class="vy-info-area"><div class="vy-title-row"><h3>${escapeHtml(selectedVideo.name)}</h3></div>
-      <div class="vy-meta-row"><span class="vy-status pending">⏳ Analyse en cours</span><span>⚡ Mode rapide stable</span><span>•</span><span>max 15 sec</span></div>
-      <div class="vy-plan-box"><b>🚀 Préparation du rapport</b><p>Je récupère seulement quelques informations légères pour éviter que les vidéos longues bloquent.</p><p>Si l’API tarde trop, l’outil affiche quand même un rapport ultra pédagogique au lieu de tourner sans fin.</p></div>
-      <div class="progress-soft"><i></i></div>
-    </div></div></article></div>`;
-  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours — maximum 15 secondes.'; qs('step3').classList.add('active');
-  let frames=[];
-  try{ frames = await extractFrames(selectedVideo,2); }catch(e){ frames=[]; }
+  qs('results').innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Analyse en cours…</h2><p>Extraction des images clés, lecture du contexte et génération d’un rapport ultra détaillé.</p></div>';
+  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours…'; qs('step3').classList.add('active');
+  const frames = await extractFrames(selectedVideo,4);
   const payload={
     action:'analyze', openaiKey:k.openai, geminiKey:k.gemini,
-    videoName:selectedVideo.name, videoSize:Math.round(selectedVideo.size/1024/1024), duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
-    frames,
-    fastMode:true
+    videoName:selectedVideo.name, duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
+    frames
   };
   let report=null;
   try{
-    const controller = new AbortController();
-    const timer = setTimeout(()=>controller.abort(), 14000);
-    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
-    clearTimeout(timer);
-    const data=await res.json().catch(()=>null);
-    if(data && data.report) report=data.report;
-  }catch(e){ console.warn('Analyse distante trop longue, fallback local:', e); }
+    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await res.json(); if(data && data.report) report=data.report;
+  }catch(e){ console.warn(e); }
   if(!report) report=localFallbackReport(payload);
   lastAnalysis={id:Date.now(), date:new Date().toLocaleString('fr-FR'), video:selectedVideo.name, report};
   saveHistory(lastAnalysis); renderReport(report); renderHistory(); qs('analysisStatus').textContent='Analyse terminée et sauvegardée dans l’historique.'; qs('analyzeBtn').disabled=false;
@@ -211,121 +166,101 @@ function renderReport(input){
     end: Math.max(5, Math.min(10, r.scores.cta)),
     retention: Math.max(5, Math.min(10, Math.round((r.scores.hook+r.scores.rhythm+r.scores.emotion)/3)))
   };
-  const videoTitle = (lastAnalysis && lastAnalysis.video) ? lastAnalysis.video : (selectedVideo ? selectedVideo.name : 'Nouvelle vidéo.mp4');
-  const videoDate = new Date().toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'});
-  const sizeLabel = selectedVideo ? prettySize(selectedVideo.size) : '—';
-  const thumb = selectedVideoUrl ? `<video class="vy-thumb" src="${selectedVideoUrl}" muted playsinline preload="metadata"></video>` : `<div class="vy-thumb empty">Non Disponible</div>`;
-  const plan = (r.actions || []).slice(0,3);
-  const global10 = Math.round((r.score/10)*10)/10;
-
+  const priorityBadges = [
+    ['À corriger en premier','Le hook + la première phrase'],
+    ['À améliorer ensuite','Le rythme et les coupures'],
+    ['À finaliser','La fin + la question commentaire']
+  ];
   qs('results').innerHTML=`
-    <div class="vy-video-list">  
-      <div class="vy-sort-row"><span>Trier par:</span><button>Jour⌄</button><button class="vy-icon-btn">⇅</button></div>
-      <article class="vy-video-card">
-        <div class="vy-card-main">
-          <div class="vy-thumb-wrap">${thumb}</div>
-          <div class="vy-info-area">
-            <div class="vy-title-row"><h3>${escapeHtml(videoTitle)}</h3><button class="vy-edit">✎</button></div>
-            <div class="vy-meta-row"><span class="vy-status">◉ Terminé</span><span>📅 ${videoDate}</span><span>•</span><span>${sizeLabel}</span></div>
-            <div class="vy-plan-box"><b>🚀 Plan d’Action</b>${plan.map((a,i)=>`<p><strong>${i+1}. ${['Narration','Sous-titrage','Rétention'][i] || 'Action'} :</strong> ${a}</p>`).join('')}</div>
-            <div class="vy-card-actions"><button class="vy-purple" onclick="openAnalysisModal()">👁 Voir l’analyse</button><button class="vy-light" onclick="removeVideo()">🗑 Supprimer</button></div>
-          </div>
-          <aside class="vy-score-card">
-            <span>Score Global</span>
-            <strong>✨ ${global10}<small>/10</small></strong>
-            <div class="vy-bar"><i style="width:${r.score}%"></i></div>
-            ${vyMiniScore('Hook', r.scores.hook)}
-            ${vyMiniScore('Visuel', r.scores.thumbnail || r.scores.clarity)}
-            ${vyMiniScore('Viralité', Math.max(5, Math.min(10, Math.round((r.scores.emotion+r.scores.hook)/2))))}
-            ${vyMiniScore('Cohérence', r.scores.clarity)}
-            ${vyMiniScore('Rétention', r.scores.rhythm)}
-            ${vyMiniScore('Magnétisme émotionnel', r.scores.emotion)}
-          </aside>
-        </div>
-      </article>
+  <div class="report-shell">
+    <div class="report-header-clean">
+      <div>
+        <span class="result-chip">Rapport ultra pédagogique</span>
+        <h2>📋 Analyse complète — claire, rangée, actionnable</h2>
+        <p>Lecture conseillée : commence par le score global, puis les priorités, puis les hooks, puis le plan d’action.</p>
+      </div>
+      <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
     </div>
 
-    <div id="analysisModal" class="vy-modal hidden" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
-      <div class="vy-modal-card">
-        <button class="vy-close" onclick="closeAnalysisModal()">×</button>
-        <div class="vy-modal-head"><div class="vy-logo">🪽 <strong>Videlyze</strong></div></div>
-        <div class="vy-modal-sub"><h2>${escapeHtml(videoTitle)}</h2><button class="vy-light" onclick="copyReport()">⌄ PDF</button><div class="vy-mini-thumb">${thumb}</div></div>
-        <div class="vy-score-hero"><strong>${global10}<small>/10</small></strong><div class="vy-bigbar ${r.score<70?'warn':''}"><i style="width:${r.score}%"></i></div></div>
-        <section class="vy-modal-section"><h3>Scores Détaillés</h3>
-          ${vyBigScore('Hook', r.scores.hook)}
-          ${vyBigScore('Visuel', r.scores.thumbnail || r.scores.clarity)}
-          ${vyBigScore('Viralité', Math.max(5, Math.min(10, Math.round((r.scores.emotion+r.scores.hook)/2))))}
-          ${vyBigScore('Cohérence', r.scores.clarity)}
-          ${vyBigScore('Rétention', r.scores.rhythm)}
-          ${vyBigScore('Magnétisme émotionnel', r.scores.emotion)}
-        </section>
-        <section class="vy-modal-section"><h3>Analyse du Hook (0–3s)</h3><p>${r.deep.hookStart}</p><p><b>REWRITE :</b> ${r.hooks[0] || 'Commence par la phrase la plus forte.'}</p></section>
-        <section class="vy-modal-section"><h3>Hooks & Rétention pendant toute la vidéo</h3><div class="vy-hook-grid">
-          <div><b>Début</b><strong>${hookScores.start}/10</strong><p>${r.deep.hookStart}</p></div>
-          <div><b>Milieu</b><strong>${hookScores.middle}/10</strong><p>${r.deep.hookMiddle}</p></div>
-          <div><b>Avant la fin</b><strong>${hookScores.end}/10</strong><p>${r.deep.hookEnd}</p></div>
-          <div><b>Rétention</b><strong>${hookScores.retention}/10</strong><p>Relance toutes les 6 à 10 secondes pour éviter les décrochages.</p></div>
-        </div></section>
-        <section class="vy-modal-section"><h3>Dynamisme & Visuel</h3><p>${r.deep.visual}</p></section>
-        <section class="vy-modal-section"><h3>Script & Narration</h3><p>${r.deep.global}</p></section>
-        <section class="vy-modal-section"><h3>Audio & Ambiance</h3><p>${r.deep.sound}</p></section>
-        <section class="vy-modal-section"><h3>Analyse de l’Appel à l’Action</h3><p>${r.deep.cta}</p></section>
-        <section class="vy-modal-section"><h3>Analyse seconde par seconde</h3><div class="vy-timeline">${r.timeline.map(x=>`<div><b>${x[0]}</b><p>${x[1]}</p></div>`).join('')}</div></section>
-        <section class="vy-modal-section"><h3>Plan d’Action</h3>${r.actions.map((a,i)=>`<p><b>${i+1}. ${['Structure','Technique','Stratégie future','Sous-titrage','Rétention'][i] || 'Action'} :</b> ${a}</p>`).join('')}</section>
-        <section class="vy-modal-section beginner"><h3>Mode débutant total — Fais ça / Ne fais pas ça</h3><div class="vy-do-dont"><div><h4>✅ Fais ça</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div><div><h4>❌ Ne fais pas ça</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div></div></section>
-        <section class="vy-modal-section"><h3>Transcription / Réécriture prête à dire</h3><div class="vy-transcript">${r.rewrite.map(a=>`<p>${a}</p>`).join('')}</div></section>
+    <section class="report-section section-resume">
+      <div class="section-title"><span>1</span><div><h3>Résumé principal</h3><p>Ce qu’il faut comprendre en premier, sans se perdre dans les détails.</p></div></div>
+      <div class="score-hero clean-hero">
+        <div class="score-ring no-slice"><strong>${r.score}</strong><span>/100</span><small>score global</small></div>
+        <div class="hero-copy">
+          <span class="potential">${r.potential}</span>
+          <h3>${r.summaryTitle}</h3>
+          <p>${r.summaryText}</p>
+          <div class="score-explain"><b>Lecture simple :</b> 0–50 = à retravailler · 50–70 = correct · 70–85 = bon potentiel · 85+ = très solide. Le score sert à savoir quoi corriger en priorité.</div>
+        </div>
+        <div class="priority-box">
+          <h4>🎯 Priorités immédiates</h4>
+          ${priorityBadges.map(x=>`<div class="priority-row"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}
+        </div>
       </div>
-    </div>`;
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>2</span><div><h3>Scores par catégorie</h3><p>Chaque score indique une zone précise à améliorer.</p></div></div>
+      <div class="score-dashboard-grid">
+        <div class="score-panel big">${bar('Hook',r.scores.hook)}<p>Capacité à arrêter le scroll et à créer de la curiosité.</p></div>
+        <div class="score-panel">${bar('Rythme',r.scores.rhythm)}<p>Coupures, énergie, absence de moments mous.</p></div>
+        <div class="score-panel">${bar('Clarté',r.scores.clarity)}<p>Est-ce qu’un débutant comprend tout de suite ?</p></div>
+        <div class="score-panel">${bar('CTA',r.scores.cta)}<p>Fin qui donne envie de commenter ou regarder la suite.</p></div>
+        <div class="score-panel">${bar('Émotion',r.scores.emotion)}<p>Réaction, tension, surprise, humour ou conflit.</p></div>
+        <div class="score-panel">${bar('Miniature',r.scores.thumbnail)}<p>Lisibilité et envie de cliquer depuis la couverture.</p></div>
+      </div>
+    </section>
+
+    <section class="report-section section-hooks">
+      <div class="section-title"><span>3</span><div><h3>Hooks dans toute la vidéo</h3><p>Le hook ne doit pas être uniquement au début : il faut relancer l’attention plusieurs fois.</p></div></div>
+      <div class="hook-score-grid clean-hooks">
+        <div class="hook-score-card"><strong>Début 0–3s</strong><b>${hookScores.start}/10</b><p>${r.deep.hookStart}</p></div>
+        <div class="hook-score-card"><strong>Milieu / relance</strong><b>${hookScores.middle}/10</b><p>${r.deep.hookMiddle}</p></div>
+        <div class="hook-score-card"><strong>Avant la fin</strong><b>${hookScores.end}/10</b><p>${r.deep.hookEnd}</p></div>
+        <div class="hook-score-card"><strong>Rétention totale</strong><b>${hookScores.retention}/10</b><p>Il faut remettre une raison de rester toutes les 6 à 10 secondes.</p></div>
+      </div>
+      <div class="wide-card compact-card"><h4>🔥 Hooks prêts à utiliser</h4><div class="pill-list ordered-pills">${r.hooks.map((h,i)=>`<div class="pill"><b>${i+1}</b>${h}</div>`).join('')}</div></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>4</span><div><h3>Analyse détaillée étape par étape</h3><p>Une lecture dans l’ordre de la vidéo, comme une fiche de correction.</p></div></div>
+      <div class="timeline clean-timeline">${r.timeline.map((x,i)=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}<em class="mini-score">${i<3?'Priorité haute':i<6?'Priorité moyenne':'Finition'}</em></span></div>`).join('')}</div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>5</span><div><h3>Compréhension débutant total</h3><p>La partie la plus simple : quoi faire et quoi éviter.</p></div></div>
+      <div class="lesson-box"><h3>🧠 Explication simple pour Patrick</h3><p>${r.deep.global}</p></div>
+      <div class="do-dont clean-do-dont">
+        <div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+        <div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>6</span><div><h3>Actions concrètes avant publication</h3><p>La liste simple à suivre avant de poster.</p></div></div>
+      <div class="two-col clean-two-col">
+        <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div>
+        <div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>7</span><div><h3>Derniers contrôles</h3><p>À vérifier juste avant de publier sur TikTok.</p></div></div>
+      <div class="two-col clean-two-col">
+        <div class="wide-card"><h3>📌 Checklist avant publication</h3><ul>${r.checklist.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+        <div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      </div>
+    </section>
+  </div>`;
 }
-
-function openAnalysisModal(){ const m=qs('analysisModal'); if(m){m.classList.remove('hidden'); document.body.classList.add('modal-open');} }
-function closeAnalysisModal(){ const m=qs('analysisModal'); if(m){m.classList.add('hidden'); document.body.classList.remove('modal-open');} }
-function vyMiniScore(label,val){ return `<div class="vy-mini-score"><span>${label}</span><b>${val}/10</b><div class="vy-line"><i style="width:${val*10}%"></i></div></div>`; }
-function vyBigScore(label,val){ return `<div class="vy-big-score"><div><span>${label}</span><b>${val}/10</b></div><div class="vy-line big"><i style="width:${val*10}%"></i></div></div>`; }
-function escapeHtml(str=''){ return String(str).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c])); }
-
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
 function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
 function copyReport(){navigator.clipboard.writeText(reportToText()).then(()=>alert('Rapport copié'))}
-function saveHistory(item){
-  const h=JSON.parse(localStorage.getItem('TA_HISTORY')||'[]');
-  h.unshift(item);
-  localStorage.setItem('TA_HISTORY',JSON.stringify(h.slice(0,50)));
-  lastAnalysis=item;
-}
+function saveHistory(item){const h=JSON.parse(localStorage.getItem('TA_HISTORY')||'[]'); h.unshift(item); localStorage.setItem('TA_HISTORY',JSON.stringify(h.slice(0,30))); lastAnalysis=item;}
 function getHistory(){return JSON.parse(localStorage.getItem('TA_HISTORY')||'[]')}
-function renderHistory(){
-  const h=getHistory();
-  if(qs('historyCount')) qs('historyCount').textContent=h.length;
-  const el=qs('historyList'); if(!el)return;
-  el.innerHTML=h.length?h.map(item=>`<div class="history-item history-row">
-    <div onclick="openHistory(${item.id})" class="history-open">
-      <h3>${escapeHtml(item.video)}</h3>
-      <p>${item.date} · Score ${item.report?.score||'--'}/100 · ${escapeHtml(item.report?.summaryTitle||'Analyse sauvegardée')}</p>
-    </div>
-    <div class="history-actions">
-      <button class="secondary-btn small" onclick="event.stopPropagation();openHistory(${item.id})">Voir</button>
-      <button class="danger-btn small" onclick="event.stopPropagation();deleteHistoryItem(${item.id})">Supprimer</button>
-    </div>
-  </div>`).join(''):'<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'
-}
-function openHistory(id){
-  const item=getHistory().find(x=>x.id===id); if(!item)return;
-  lastAnalysis=item;
-  switchPage('analyze',document.querySelector('[data-page="analyze"]'));
-  qs('results').classList.remove('hidden');
-  renderReport(item.report);
-}
-function deleteHistoryItem(id){
-  if(!confirm('Supprimer uniquement cette analyse de l’historique ?')) return;
-  const h=getHistory().filter(x=>x.id!==id);
-  localStorage.setItem('TA_HISTORY',JSON.stringify(h));
-  renderHistory();
-}
-function clearHistory(){
-  if(!confirm('Vider tout l’historique ?')) return;
-  localStorage.removeItem('TA_HISTORY'); renderHistory();
-}
+function renderHistory(){const h=getHistory(); if(qs('historyCount')) qs('historyCount').textContent=h.length; const el=qs('historyList'); if(!el)return; el.innerHTML=h.length?h.map(item=>`<div class="history-item" onclick="openHistory(${item.id})"><h3>${item.video}</h3><p>${item.date} · Score ${item.report.score}/100 · ${item.report.summaryTitle}</p></div>`).join(''):'<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'}
+function openHistory(id){const item=getHistory().find(x=>x.id===id); if(!item)return; lastAnalysis=item; switchPage('analyze',document.querySelector('[data-page="analyze"]')); qs('results').classList.remove('hidden'); renderReport(item.report);}
+function clearHistory(){localStorage.removeItem('TA_HISTORY'); renderHistory();}
 function fillPlannerFromLast(){const r=lastAnalysis?.report || getHistory()[0]?.report; if(!r){alert('Fais une analyse avant.');return;} qs('plannerTitle').value=r.hooks[0]||r.summaryTitle; qs('plannerHook').value=r.hooks[1]||''}
 function savePlan(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); plans.unshift({id:Date.now(),title:qs('plannerTitle').value||'Nouvelle vidéo',season:qs('plannerSeason').value,episode:qs('plannerEpisode').value,date:qs('plannerDate').value,time:qs('plannerTime').value,hook:qs('plannerHook').value}); localStorage.setItem('TA_PLANS',JSON.stringify(plans)); renderPlans();}
 function renderPlans(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); const el=qs('plannerList'); if(!el)return; el.innerHTML=plans.map(p=>`<div class="plan-item"><h3>S${p.season} EP${p.episode} — ${p.title}</h3><p>${p.date||'Date à choisir'} à ${p.time||'--:--'} · Hook : ${p.hook||'à écrire'}</p></div>`).join('')}
