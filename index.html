@@ -7,73 +7,182 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="app-shell">
-    <section id="loginScreen" class="login-screen">
-      <div class="hero-card">
-        <div class="badge">TikTok Analyzer Pro</div>
-        <h1>Analyseur vidéo intelligent</h1>
-        <p class="subtitle">Connecte tes clés API, puis entre dans ton dashboard d’analyse.</p>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-glow login-glow-a"></div>
+    <div class="login-glow login-glow-b"></div>
+    <div class="login-card">
+      <div class="login-badge">TikTok Analyzer Pro</div>
+      <h1>Connexion à l’analyseur</h1>
+      <p>Colle tes clés une fois, enregistre, puis entre dans le dashboard complet.</p>
 
-        <div class="api-card">
-          <h2>Connexion API</h2>
-          <p class="mini-text">Les clés sont stockées uniquement dans ton navigateur.</p>
-
-          <label for="openaiKey">Clé OpenAI</label>
-          <div class="input-row">
-            <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
-            <button class="ghost-btn" type="button" onclick="togglePassword('openaiKey')">Voir</button>
+      <div class="api-card">
+        <div class="api-card-head">
+          <div>
+            <span class="api-chip">🔐 Connexion API</span>
+            <h2>OpenAI + Gemini</h2>
           </div>
-
-          <label for="geminiKey">Clé Gemini</label>
-          <div class="input-row">
-            <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
-            <button class="ghost-btn" type="button" onclick="togglePassword('geminiKey')">Voir</button>
-          </div>
-
-          <button class="primary-btn" onclick="connectAPIs()">Connecter les clés</button>
-          <div id="apiStatus" class="status-box">En attente de connexion</div>
+          <span class="api-live" id="apiLive">En attente</span>
         </div>
 
-        <button id="enterButton" class="enter-btn" onclick="enterApp()" disabled>Entrer dans l’application</button>
+        <label for="openaiKey">Clé OpenAI</label>
+        <div class="input-row">
+          <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+          <button type="button" onclick="togglePassword('openaiKey')">Voir</button>
+        </div>
+
+        <label for="geminiKey">Clé Gemini</label>
+        <div class="input-row">
+          <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+          <button type="button" onclick="togglePassword('geminiKey')">Voir</button>
+        </div>
+
+        <button class="primary-btn full" onclick="connectAPIs()">⚡ Connecter les clés</button>
+        <div id="apiStatus" class="status-box">Clés non enregistrées</div>
       </div>
-    </section>
 
-    <section id="dashboard" class="dashboard hidden">
-      <header class="dashboard-header">
+      <button id="enterButton" class="enter-btn" onclick="enterApp()" disabled>Entrer dans l’application</button>
+      <p class="login-note">Les clés sont conservées dans le navigateur de ce PC.</p>
+    </div>
+  </section>
+
+  <main id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">🎬</div>
         <div>
-          <div class="badge small">Dashboard</div>
-          <h1>TikTok Analyzer Pro</h1>
-          <p>Importe une vidéo, puis lance l’analyse pour obtenir un rapport façon SaaS.</p>
+          <strong>TikTok<span>Pro</span></strong>
+          <small>Analyzer Dashboard</small>
         </div>
-        <button class="secondary-btn" onclick="backToLogin()">Modifier les clés</button>
+      </div>
+
+      <nav class="nav">
+        <p>Principal</p>
+        <button class="nav-btn active" data-page="analyze" onclick="switchPage('analyze', this)">📊 Analyser une vidéo</button>
+        <button class="nav-btn" data-page="history" onclick="switchPage('history', this)">📂 Historique <span id="historyCount">0</span></button>
+        <button class="nav-btn" data-page="planner" onclick="switchPage('planner', this)">📅 Planifier mes vidéos</button>
+        <p>Outils</p>
+        <button class="nav-btn" data-page="scripts" onclick="switchPage('scripts', this)">✍️ Générateur scripts</button>
+        <button class="nav-btn" data-page="ideas" onclick="switchPage('ideas', this)">💡 Idées de contenu</button>
+        <button class="nav-btn" data-page="checklist" onclick="switchPage('checklist', this)">✅ Checklist</button>
+      </nav>
+
+      <div class="side-api">
+        <div class="side-api-title">🔐 API connectées</div>
+        <div class="api-line"><span id="openaiDot" class="dot"></span> OpenAI <strong id="openaiLabel">Non</strong></div>
+        <div class="api-line"><span id="geminiDot" class="dot"></span> Gemini <strong id="geminiLabel">Non</strong></div>
+        <button class="mini-btn" onclick="backToLogin()">Modifier les clés</button>
+      </div>
+    </aside>
+
+    <section class="content">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">📊 Analyser une vidéo</h1>
+          <p id="pageSub">Glisse ta vidéo au centre, choisis le contexte, puis lance l’analyse.</p>
+        </div>
+        <button class="secondary-btn" onclick="resetAnalyzer()">Nouvelle analyse</button>
       </header>
 
-      <section class="upload-panel">
-        <div class="upload-box">
-          <h2>Importer une vidéo</h2>
-          <p>Formats conseillés : MP4, MOV, WEBM.</p>
-          <input id="videoInput" type="file" accept="video/*" />
-          <button class="primary-btn" onclick="analyzeVideo()">Analyser la vidéo</button>
-          <div id="analysisStatus" class="status-box">Aucune analyse lancée</div>
+      <section id="page-analyze" class="page active">
+        <div class="steps">
+          <div class="step active"><b>1</b><span>Upload vidéo</span></div>
+          <i></i>
+          <div class="step" id="step2"><b>2</b><span>Contexte</span></div>
+          <i></i>
+          <div class="step" id="step3"><b>3</b><span>Rapport</span></div>
         </div>
+
+        <div id="dropZone" class="drop-zone" onclick="document.getElementById('videoInput').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropVideo(event)">
+          <div class="drop-icon">🎥</div>
+          <h2>Dépose ta vidéo ici</h2>
+          <p>Clique ou glisse-dépose ton fichier vidéo</p>
+          <span>MP4 · MOV · WEBM · AVI · MKV</span>
+        </div>
+        <input id="videoInput" class="hidden-input" type="file" accept="video/*" onchange="pickVideo(this.files[0])" />
+
+        <div id="videoPreview" class="video-preview hidden">
+          <div class="preview-icon">🎬</div>
+          <div>
+            <strong id="videoName">Aucune vidéo</strong>
+            <small id="videoMeta">—</small>
+          </div>
+          <button onclick="removeVideo()">✕</button>
+        </div>
+
+        <div id="contextPanel" class="context-grid hidden">
+          <label>Durée approximative
+            <select id="durationSelect">
+              <option value="75">1 min à 1 min 30</option>
+              <option value="45">30 sec à 1 min</option>
+              <option value="120">1 min 30 à 2 min</option>
+              <option value="180">2 à 3 min</option>
+            </select>
+          </label>
+          <label>Type de contenu
+            <select id="contentType">
+              <option>Famille / drama</option>
+              <option>Humour / dispute</option>
+              <option>Vlog / quotidien</option>
+              <option>Storytime</option>
+              <option>Produit / business</option>
+            </select>
+          </label>
+          <label>Hook actuel
+            <input id="hookInput" type="text" placeholder="Ex : Ça a dégénéré direct…" />
+          </label>
+        </div>
+
+        <div class="analyze-cta">
+          <div>
+            <strong>⚡ Prêt à analyser ?</strong>
+            <p id="analysisStatus">Dépose d’abord une vidéo.</p>
+          </div>
+          <button id="analyzeBtn" class="primary-btn" onclick="analyzeVideo()" disabled>🚀 Analyser ma vidéo</button>
+        </div>
+
+        <section id="results" class="results hidden">
+          <div class="results-head">
+            <div>
+              <span class="result-chip">Rapport type Videlyze</span>
+              <h2>📋 Analyse complète</h2>
+            </div>
+            <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
+          </div>
+
+          <div class="score-hero">
+            <div class="score-ring"><strong id="viralScore">--</strong><span>/100</span></div>
+            <div>
+              <span id="potentialBadge" class="potential">Potentiel</span>
+              <h3 id="summaryTitle">En attente</h3>
+              <p id="summaryText">Le rapport apparaîtra ici.</p>
+            </div>
+            <div class="score-bars" id="scoreBars"></div>
+          </div>
+
+          <div class="cards-grid">
+            <article class="report-card"><h3>🎣 Hook 0–3 sec</h3><b id="hookScore">--/10</b><p id="hookAdvice">—</p></article>
+            <article class="report-card"><h3>⚡ Rythme</h3><b id="rhythmScore">--/10</b><p id="rhythmAdvice">—</p></article>
+            <article class="report-card"><h3>🧠 Clarté</h3><b id="clarityScore">--/10</b><p id="clarityAdvice">—</p></article>
+            <article class="report-card"><h3>📢 CTA</h3><b id="ctaScore">--/10</b><p id="ctaAdvice">—</p></article>
+          </div>
+
+          <div class="wide-card">
+            <h3>⏱ Analyse seconde par seconde</h3>
+            <div id="timeline" class="timeline"></div>
+          </div>
+
+          <div class="two-col">
+            <div class="wide-card"><h3>🔥 Hooks alternatifs</h3><div id="hooksList" class="pill-list"></div></div>
+            <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol id="actionList"></ol></div>
+          </div>
+        </section>
       </section>
 
-      <section id="results" class="results-grid hidden">
-        <article class="score-card main-score">
-          <span>Score viral</span>
-          <strong id="viralScore">--/100</strong>
-          <p id="globalSummary">Résultat en attente.</p>
-        </article>
-        <article class="score-card"><span>Hook</span><strong id="hookScore">--/10</strong><p id="hookText">En attente.</p></article>
-        <article class="score-card"><span>Rythme</span><strong id="rhythmScore">--/10</strong><p id="rhythmText">En attente.</p></article>
-        <article class="score-card"><span>Clarté</span><strong id="clarityScore">--/10</strong><p id="clarityText">En attente.</p></article>
-        <article class="score-card"><span>CTA</span><strong id="ctaScore">--/10</strong><p id="ctaText">En attente.</p></article>
-      </section>
-
-      <section id="actionPlan" class="action-plan hidden">
-        <h2>Plan d’action recommandé</h2>
-        <ol id="actionList"></ol>
-      </section>
+      <section id="page-history" class="page"><div class="empty-card"><h2>📂 Historique</h2><p>Les prochaines analyses sauvegardées apparaîtront ici.</p></div></section>
+      <section id="page-planner" class="page"><div class="empty-card"><h2>📅 Planifier mes vidéos</h2><p>Prépare les hooks, titres et horaires de publication.</p></div></section>
+      <section id="page-scripts" class="page"><div class="empty-card"><h2>✍️ Générateur scripts</h2><p>Module prêt pour générer des scripts TikTok plus tard.</p></div></section>
+      <section id="page-ideas" class="page"><div class="empty-card"><h2>💡 Idées de contenu</h2><p>Banque d’idées pour vidéos famille, drama, humour et storytime.</p></div></section>
+      <section id="page-checklist" class="page"><div class="empty-card"><h2>✅ Checklist TikTok</h2><ul><li>Hook fort dans les 2 premières secondes</li><li>Zoom ou rupture visuelle au moment clé</li><li>Sous-titres lisibles</li><li>Fin ouverte pour commentaires</li></ul></div></section>
     </section>
   </main>
 
