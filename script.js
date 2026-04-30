@@ -160,17 +160,98 @@ function localFallbackReport(p){
 }
 function renderReport(input){
   const r = ensureReport(input);
+  const hookScores = r.hookScores || {
+    start: Math.max(5, Math.min(10, r.scores.hook)),
+    middle: Math.max(5, Math.min(10, r.scores.rhythm)),
+    end: Math.max(5, Math.min(10, r.scores.cta)),
+    retention: Math.max(5, Math.min(10, Math.round((r.scores.hook+r.scores.rhythm+r.scores.emotion)/3)))
+  };
+  const priorityBadges = [
+    ['À corriger en premier','Le hook + la première phrase'],
+    ['À améliorer ensuite','Le rythme et les coupures'],
+    ['À finaliser','La fin + la question commentaire']
+  ];
   qs('results').innerHTML=`
-  <div class="results-head"><div><span class="result-chip">Rapport ultra pédagogique</span><h2>📋 Analyse complète — mode débutant total</h2><p>Objectif : expliquer exactement quoi améliorer, pourquoi c’est important, et comment le faire.</p></div><button class="secondary-btn" onclick="copyReport()">Copier le rapport</button></div>
-  <div class="score-hero"><div class="score-ring"><strong>${r.score}</strong><span>/100</span></div><div><span class="potential">${r.potential}</span><h3>${r.summaryTitle}</h3><p>${r.summaryText}</p></div><div class="score-bars">${bar('Hook',r.scores.hook)}${bar('Rythme',r.scores.rhythm)}${bar('Clarté',r.scores.clarity)}${bar('CTA',r.scores.cta)}${bar('Émotion',r.scores.emotion)}${bar('Miniature',r.scores.thumbnail)}</div></div>
-  <div class="lesson-box"><h3>🧠 Explication simple pour Patrick</h3><p>${r.deep.global}</p></div>
-  <div class="cards-grid"><article class="report-card"><h3>🎣 Hook global</h3><b>${r.scores.hook}/10</b><p>${r.cards.hook}</p></article><article class="report-card"><h3>⚡ Rythme</h3><b>${r.scores.rhythm}/10</b><p>${r.cards.rhythm}</p></article><article class="report-card"><h3>🧠 Clarté</h3><b>${r.scores.clarity}/10</b><p>${r.cards.clarity}</p></article><article class="report-card"><h3>📢 Fin / CTA</h3><b>${r.scores.cta}/10</b><p>${r.cards.cta}</p></article></div>
-  <div class="wide-card"><h3>🔥 Les hooks ne sont pas seulement au début</h3><div class="hook-map"><div><b>1. Début</b><p>${r.deep.hookStart}</p></div><div><b>2. Milieu</b><p>${r.deep.hookMiddle}</p></div><div><b>3. Avant la fin</b><p>${r.deep.hookEnd}</p></div></div></div>
-  <div class="wide-card"><h3>⏱ Analyse détaillée étape par étape</h3><div class="timeline">${r.timeline.map(x=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}</div></div>
-  <div class="two-col"><div class="wide-card"><h3>📝 Sous-titres & son</h3><p>${r.deep.subtitles}</p><p>${r.deep.sound}</p></div><div class="wide-card"><h3>🔥 Hooks prêts à utiliser</h3><div class="pill-list">${r.hooks.map(h=>`<div class="pill">${h}</div>`).join('')}</div></div></div>
-  <div class="two-col"><div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div><div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div></div>
-  <div class="beginner-box"><h3>🧩 Mode débutant total : fais ça / ne fais pas ça</h3><div class="do-dont"><div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div><div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div></div></div>
-  <div class="two-col"><div class="wide-card"><h3>📌 Checklist avant publication</h3><ul>${r.checklist.map(a=>`<li>${a}</li>`).join('')}</ul></div><div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div></div>`;
+  <div class="report-shell">
+    <div class="report-header-clean">
+      <div>
+        <span class="result-chip">Rapport ultra pédagogique</span>
+        <h2>📋 Analyse complète — claire, rangée, actionnable</h2>
+        <p>Lecture conseillée : commence par le score global, puis les priorités, puis les hooks, puis le plan d’action.</p>
+      </div>
+      <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
+    </div>
+
+    <section class="report-section section-resume">
+      <div class="section-title"><span>1</span><div><h3>Résumé principal</h3><p>Ce qu’il faut comprendre en premier, sans se perdre dans les détails.</p></div></div>
+      <div class="score-hero clean-hero">
+        <div class="score-ring no-slice"><strong>${r.score}</strong><span>/100</span><small>score global</small></div>
+        <div class="hero-copy">
+          <span class="potential">${r.potential}</span>
+          <h3>${r.summaryTitle}</h3>
+          <p>${r.summaryText}</p>
+          <div class="score-explain"><b>Lecture simple :</b> 0–50 = à retravailler · 50–70 = correct · 70–85 = bon potentiel · 85+ = très solide. Le score sert à savoir quoi corriger en priorité.</div>
+        </div>
+        <div class="priority-box">
+          <h4>🎯 Priorités immédiates</h4>
+          ${priorityBadges.map(x=>`<div class="priority-row"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}
+        </div>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>2</span><div><h3>Scores par catégorie</h3><p>Chaque score indique une zone précise à améliorer.</p></div></div>
+      <div class="score-dashboard-grid">
+        <div class="score-panel big">${bar('Hook',r.scores.hook)}<p>Capacité à arrêter le scroll et à créer de la curiosité.</p></div>
+        <div class="score-panel">${bar('Rythme',r.scores.rhythm)}<p>Coupures, énergie, absence de moments mous.</p></div>
+        <div class="score-panel">${bar('Clarté',r.scores.clarity)}<p>Est-ce qu’un débutant comprend tout de suite ?</p></div>
+        <div class="score-panel">${bar('CTA',r.scores.cta)}<p>Fin qui donne envie de commenter ou regarder la suite.</p></div>
+        <div class="score-panel">${bar('Émotion',r.scores.emotion)}<p>Réaction, tension, surprise, humour ou conflit.</p></div>
+        <div class="score-panel">${bar('Miniature',r.scores.thumbnail)}<p>Lisibilité et envie de cliquer depuis la couverture.</p></div>
+      </div>
+    </section>
+
+    <section class="report-section section-hooks">
+      <div class="section-title"><span>3</span><div><h3>Hooks dans toute la vidéo</h3><p>Le hook ne doit pas être uniquement au début : il faut relancer l’attention plusieurs fois.</p></div></div>
+      <div class="hook-score-grid clean-hooks">
+        <div class="hook-score-card"><strong>Début 0–3s</strong><b>${hookScores.start}/10</b><p>${r.deep.hookStart}</p></div>
+        <div class="hook-score-card"><strong>Milieu / relance</strong><b>${hookScores.middle}/10</b><p>${r.deep.hookMiddle}</p></div>
+        <div class="hook-score-card"><strong>Avant la fin</strong><b>${hookScores.end}/10</b><p>${r.deep.hookEnd}</p></div>
+        <div class="hook-score-card"><strong>Rétention totale</strong><b>${hookScores.retention}/10</b><p>Il faut remettre une raison de rester toutes les 6 à 10 secondes.</p></div>
+      </div>
+      <div class="wide-card compact-card"><h4>🔥 Hooks prêts à utiliser</h4><div class="pill-list ordered-pills">${r.hooks.map((h,i)=>`<div class="pill"><b>${i+1}</b>${h}</div>`).join('')}</div></div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>4</span><div><h3>Analyse détaillée étape par étape</h3><p>Une lecture dans l’ordre de la vidéo, comme une fiche de correction.</p></div></div>
+      <div class="timeline clean-timeline">${r.timeline.map((x,i)=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}<em class="mini-score">${i<3?'Priorité haute':i<6?'Priorité moyenne':'Finition'}</em></span></div>`).join('')}</div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>5</span><div><h3>Compréhension débutant total</h3><p>La partie la plus simple : quoi faire et quoi éviter.</p></div></div>
+      <div class="lesson-box"><h3>🧠 Explication simple pour Patrick</h3><p>${r.deep.global}</p></div>
+      <div class="do-dont clean-do-dont">
+        <div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+        <div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>6</span><div><h3>Actions concrètes avant publication</h3><p>La liste simple à suivre avant de poster.</p></div></div>
+      <div class="two-col clean-two-col">
+        <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div>
+        <div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <div class="section-title"><span>7</span><div><h3>Derniers contrôles</h3><p>À vérifier juste avant de publier sur TikTok.</p></div></div>
+      <div class="two-col clean-two-col">
+        <div class="wide-card"><h3>📌 Checklist avant publication</h3><ul>${r.checklist.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+        <div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+      </div>
+    </section>
+  </div>`;
 }
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
 function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
@@ -191,6 +272,20 @@ function renderIdeas(){const el=qs('ideasList'); if(!el)return; ['Le moment où 
 function initThumbnail(){setTimeout(renderThumbnail,100)}
 function setThumbStyle(style,btn){thumbState.style=style; document.querySelectorAll('.style-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderThumbnail();}
 function loadVideoForThumb(){if(selectedVideo){prepareThumbVideo(selectedVideo)}else alert('Analyse ou choisis une vidéo avant.')}
+function prepareThumbSource(file){
+  if(!file)return;
+  if(file.type && file.type.startsWith('video/')) return prepareThumbVideo(file);
+  if(file.type && file.type.startsWith('image/')) return prepareThumbImage(file);
+  alert('Format non reconnu. Glisse une vidéo MP4/MOV ou une image PNG/JPG.');
+}
+function thumbDragOver(e){e.preventDefault(); qs('thumbDropZone')?.classList.add('drag')}
+function thumbDragLeave(e){e.preventDefault(); qs('thumbDropZone')?.classList.remove('drag')}
+function thumbDrop(e){
+  e.preventDefault();
+  qs('thumbDropZone')?.classList.remove('drag');
+  const f=e.dataTransfer.files && e.dataTransfer.files[0];
+  prepareThumbSource(f);
+}
 function prepareThumbVideo(file){if(!file)return; thumbState.videoFile=file; if(thumbState.videoUrl && thumbState.videoUrl!==selectedVideoUrl) URL.revokeObjectURL(thumbState.videoUrl); thumbState.videoUrl=URL.createObjectURL(file); const v=qs('thumbVideo'); v.src=thumbState.videoUrl; v.onloadedmetadata=()=>captureThumbFrame();}
 function prepareThumbImage(file){if(!file)return; const img=new Image(); img.onload=()=>{thumbState.image=img; renderThumbnail();}; img.src=URL.createObjectURL(file);}
 function seekThumbFrame(){const v=qs('thumbVideo'); if(!v.duration)return; v.currentTime=(qs('thumbTime').value/100)*v.duration; v.onseeked=()=>captureThumbFrame();}
