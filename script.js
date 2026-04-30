@@ -166,93 +166,79 @@ function renderReport(input){
     end: Math.max(5, Math.min(10, r.scores.cta)),
     retention: Math.max(5, Math.min(10, Math.round((r.scores.hook+r.scores.rhythm+r.scores.emotion)/3)))
   };
-  const priorityBadges = [
-    ['À corriger en premier','Le hook + la première phrase'],
-    ['À améliorer ensuite','Le rythme et les coupures'],
-    ['À finaliser','La fin + la question commentaire']
-  ];
+  const videoTitle = (lastAnalysis && lastAnalysis.video) ? lastAnalysis.video : (selectedVideo ? selectedVideo.name : 'Nouvelle vidéo.mp4');
+  const videoDate = new Date().toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'});
+  const sizeLabel = selectedVideo ? prettySize(selectedVideo.size) : '—';
+  const thumb = selectedVideoUrl ? `<video class="vy-thumb" src="${selectedVideoUrl}" muted playsinline preload="metadata"></video>` : `<div class="vy-thumb empty">Non Disponible</div>`;
+  const plan = (r.actions || []).slice(0,3);
+  const global10 = Math.round((r.score/10)*10)/10;
+
   qs('results').innerHTML=`
-  <div class="report-shell">
-    <div class="report-header-clean">
-      <div>
-        <span class="result-chip">Rapport ultra pédagogique</span>
-        <h2>📋 Analyse complète — claire, rangée, actionnable</h2>
-        <p>Lecture conseillée : commence par le score global, puis les priorités, puis les hooks, puis le plan d’action.</p>
-      </div>
-      <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
+    <div class="vy-video-list">  
+      <div class="vy-sort-row"><span>Trier par:</span><button>Jour⌄</button><button class="vy-icon-btn">⇅</button></div>
+      <article class="vy-video-card">
+        <div class="vy-card-main">
+          <div class="vy-thumb-wrap">${thumb}</div>
+          <div class="vy-info-area">
+            <div class="vy-title-row"><h3>${escapeHtml(videoTitle)}</h3><button class="vy-edit">✎</button></div>
+            <div class="vy-meta-row"><span class="vy-status">◉ Terminé</span><span>📅 ${videoDate}</span><span>•</span><span>${sizeLabel}</span></div>
+            <div class="vy-plan-box"><b>🚀 Plan d’Action</b>${plan.map((a,i)=>`<p><strong>${i+1}. ${['Narration','Sous-titrage','Rétention'][i] || 'Action'} :</strong> ${a}</p>`).join('')}</div>
+            <div class="vy-card-actions"><button class="vy-purple" onclick="openAnalysisModal()">👁 Voir l’analyse</button><button class="vy-light" onclick="removeVideo()">🗑 Supprimer</button></div>
+          </div>
+          <aside class="vy-score-card">
+            <span>Score Global</span>
+            <strong>✨ ${global10}<small>/10</small></strong>
+            <div class="vy-bar"><i style="width:${r.score}%"></i></div>
+            ${vyMiniScore('Hook', r.scores.hook)}
+            ${vyMiniScore('Visuel', r.scores.thumbnail || r.scores.clarity)}
+            ${vyMiniScore('Viralité', Math.max(5, Math.min(10, Math.round((r.scores.emotion+r.scores.hook)/2))))}
+            ${vyMiniScore('Cohérence', r.scores.clarity)}
+            ${vyMiniScore('Rétention', r.scores.rhythm)}
+            ${vyMiniScore('Magnétisme émotionnel', r.scores.emotion)}
+          </aside>
+        </div>
+      </article>
     </div>
 
-    <section class="report-section section-resume">
-      <div class="section-title"><span>1</span><div><h3>Résumé principal</h3><p>Ce qu’il faut comprendre en premier, sans se perdre dans les détails.</p></div></div>
-      <div class="score-hero clean-hero">
-        <div class="score-ring no-slice"><strong>${r.score}</strong><span>/100</span><small>score global</small></div>
-        <div class="hero-copy">
-          <span class="potential">${r.potential}</span>
-          <h3>${r.summaryTitle}</h3>
-          <p>${r.summaryText}</p>
-          <div class="score-explain"><b>Lecture simple :</b> 0–50 = à retravailler · 50–70 = correct · 70–85 = bon potentiel · 85+ = très solide. Le score sert à savoir quoi corriger en priorité.</div>
-        </div>
-        <div class="priority-box">
-          <h4>🎯 Priorités immédiates</h4>
-          ${priorityBadges.map(x=>`<div class="priority-row"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}
-        </div>
+    <div id="analysisModal" class="vy-modal hidden" onclick="if(event.target.id==='analysisModal') closeAnalysisModal()">
+      <div class="vy-modal-card">
+        <button class="vy-close" onclick="closeAnalysisModal()">×</button>
+        <div class="vy-modal-head"><div class="vy-logo">🪽 <strong>Videlyze</strong></div></div>
+        <div class="vy-modal-sub"><h2>${escapeHtml(videoTitle)}</h2><button class="vy-light" onclick="copyReport()">⌄ PDF</button><div class="vy-mini-thumb">${thumb}</div></div>
+        <div class="vy-score-hero"><strong>${global10}<small>/10</small></strong><div class="vy-bigbar ${r.score<70?'warn':''}"><i style="width:${r.score}%"></i></div></div>
+        <section class="vy-modal-section"><h3>Scores Détaillés</h3>
+          ${vyBigScore('Hook', r.scores.hook)}
+          ${vyBigScore('Visuel', r.scores.thumbnail || r.scores.clarity)}
+          ${vyBigScore('Viralité', Math.max(5, Math.min(10, Math.round((r.scores.emotion+r.scores.hook)/2))))}
+          ${vyBigScore('Cohérence', r.scores.clarity)}
+          ${vyBigScore('Rétention', r.scores.rhythm)}
+          ${vyBigScore('Magnétisme émotionnel', r.scores.emotion)}
+        </section>
+        <section class="vy-modal-section"><h3>Analyse du Hook (0–3s)</h3><p>${r.deep.hookStart}</p><p><b>REWRITE :</b> ${r.hooks[0] || 'Commence par la phrase la plus forte.'}</p></section>
+        <section class="vy-modal-section"><h3>Hooks & Rétention pendant toute la vidéo</h3><div class="vy-hook-grid">
+          <div><b>Début</b><strong>${hookScores.start}/10</strong><p>${r.deep.hookStart}</p></div>
+          <div><b>Milieu</b><strong>${hookScores.middle}/10</strong><p>${r.deep.hookMiddle}</p></div>
+          <div><b>Avant la fin</b><strong>${hookScores.end}/10</strong><p>${r.deep.hookEnd}</p></div>
+          <div><b>Rétention</b><strong>${hookScores.retention}/10</strong><p>Relance toutes les 6 à 10 secondes pour éviter les décrochages.</p></div>
+        </div></section>
+        <section class="vy-modal-section"><h3>Dynamisme & Visuel</h3><p>${r.deep.visual}</p></section>
+        <section class="vy-modal-section"><h3>Script & Narration</h3><p>${r.deep.global}</p></section>
+        <section class="vy-modal-section"><h3>Audio & Ambiance</h3><p>${r.deep.sound}</p></section>
+        <section class="vy-modal-section"><h3>Analyse de l’Appel à l’Action</h3><p>${r.deep.cta}</p></section>
+        <section class="vy-modal-section"><h3>Analyse seconde par seconde</h3><div class="vy-timeline">${r.timeline.map(x=>`<div><b>${x[0]}</b><p>${x[1]}</p></div>`).join('')}</div></section>
+        <section class="vy-modal-section"><h3>Plan d’Action</h3>${r.actions.map((a,i)=>`<p><b>${i+1}. ${['Structure','Technique','Stratégie future','Sous-titrage','Rétention'][i] || 'Action'} :</b> ${a}</p>`).join('')}</section>
+        <section class="vy-modal-section beginner"><h3>Mode débutant total — Fais ça / Ne fais pas ça</h3><div class="vy-do-dont"><div><h4>✅ Fais ça</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div><div><h4>❌ Ne fais pas ça</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div></div></section>
+        <section class="vy-modal-section"><h3>Transcription / Réécriture prête à dire</h3><div class="vy-transcript">${r.rewrite.map(a=>`<p>${a}</p>`).join('')}</div></section>
       </div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>2</span><div><h3>Scores par catégorie</h3><p>Chaque score indique une zone précise à améliorer.</p></div></div>
-      <div class="score-dashboard-grid">
-        <div class="score-panel big">${bar('Hook',r.scores.hook)}<p>Capacité à arrêter le scroll et à créer de la curiosité.</p></div>
-        <div class="score-panel">${bar('Rythme',r.scores.rhythm)}<p>Coupures, énergie, absence de moments mous.</p></div>
-        <div class="score-panel">${bar('Clarté',r.scores.clarity)}<p>Est-ce qu’un débutant comprend tout de suite ?</p></div>
-        <div class="score-panel">${bar('CTA',r.scores.cta)}<p>Fin qui donne envie de commenter ou regarder la suite.</p></div>
-        <div class="score-panel">${bar('Émotion',r.scores.emotion)}<p>Réaction, tension, surprise, humour ou conflit.</p></div>
-        <div class="score-panel">${bar('Miniature',r.scores.thumbnail)}<p>Lisibilité et envie de cliquer depuis la couverture.</p></div>
-      </div>
-    </section>
-
-    <section class="report-section section-hooks">
-      <div class="section-title"><span>3</span><div><h3>Hooks dans toute la vidéo</h3><p>Le hook ne doit pas être uniquement au début : il faut relancer l’attention plusieurs fois.</p></div></div>
-      <div class="hook-score-grid clean-hooks">
-        <div class="hook-score-card"><strong>Début 0–3s</strong><b>${hookScores.start}/10</b><p>${r.deep.hookStart}</p></div>
-        <div class="hook-score-card"><strong>Milieu / relance</strong><b>${hookScores.middle}/10</b><p>${r.deep.hookMiddle}</p></div>
-        <div class="hook-score-card"><strong>Avant la fin</strong><b>${hookScores.end}/10</b><p>${r.deep.hookEnd}</p></div>
-        <div class="hook-score-card"><strong>Rétention totale</strong><b>${hookScores.retention}/10</b><p>Il faut remettre une raison de rester toutes les 6 à 10 secondes.</p></div>
-      </div>
-      <div class="wide-card compact-card"><h4>🔥 Hooks prêts à utiliser</h4><div class="pill-list ordered-pills">${r.hooks.map((h,i)=>`<div class="pill"><b>${i+1}</b>${h}</div>`).join('')}</div></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>4</span><div><h3>Analyse détaillée étape par étape</h3><p>Une lecture dans l’ordre de la vidéo, comme une fiche de correction.</p></div></div>
-      <div class="timeline clean-timeline">${r.timeline.map((x,i)=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}<em class="mini-score">${i<3?'Priorité haute':i<6?'Priorité moyenne':'Finition'}</em></span></div>`).join('')}</div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>5</span><div><h3>Compréhension débutant total</h3><p>La partie la plus simple : quoi faire et quoi éviter.</p></div></div>
-      <div class="lesson-box"><h3>🧠 Explication simple pour Patrick</h3><p>${r.deep.global}</p></div>
-      <div class="do-dont clean-do-dont">
-        <div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-        <div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      </div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>6</span><div><h3>Actions concrètes avant publication</h3><p>La liste simple à suivre avant de poster.</p></div></div>
-      <div class="two-col clean-two-col">
-        <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div>
-        <div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      </div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>7</span><div><h3>Derniers contrôles</h3><p>À vérifier juste avant de publier sur TikTok.</p></div></div>
-      <div class="two-col clean-two-col">
-        <div class="wide-card"><h3>📌 Checklist avant publication</h3><ul>${r.checklist.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-        <div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      </div>
-    </section>
-  </div>`;
+    </div>`;
 }
+
+function openAnalysisModal(){ const m=qs('analysisModal'); if(m){m.classList.remove('hidden'); document.body.classList.add('modal-open');} }
+function closeAnalysisModal(){ const m=qs('analysisModal'); if(m){m.classList.add('hidden'); document.body.classList.remove('modal-open');} }
+function vyMiniScore(label,val){ return `<div class="vy-mini-score"><span>${label}</span><b>${val}/10</b><div class="vy-line"><i style="width:${val*10}%"></i></div></div>`; }
+function vyBigScore(label,val){ return `<div class="vy-big-score"><div><span>${label}</span><b>${val}/10</b></div><div class="vy-line big"><i style="width:${val*10}%"></i></div></div>`; }
+function escapeHtml(str=''){ return String(str).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c])); }
+
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
 function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
 function copyReport(){navigator.clipboard.writeText(reportToText()).then(()=>alert('Rapport copié'))}
