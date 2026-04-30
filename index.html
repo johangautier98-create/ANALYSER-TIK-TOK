@@ -1,22 +1,82 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>TikTok Analyzer Pro</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TikTok Analyzer Pro</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <main class="app-shell">
+    <section id="loginScreen" class="login-screen">
+      <div class="hero-card">
+        <div class="badge">TikTok Analyzer Pro</div>
+        <h1>Analyseur vidéo intelligent</h1>
+        <p class="subtitle">Connecte tes clés API, puis entre dans ton dashboard d’analyse.</p>
 
-<h1>🚀 TikTok Analyzer Pro</h1>
+        <div class="api-card">
+          <h2>Connexion API</h2>
+          <p class="mini-text">Les clés sont stockées uniquement dans ton navigateur.</p>
 
-<div class="api-panel">
-  <h3>🔐 Connexion API</h3>
-  <input type="password" id="openaiKey" placeholder="Clé OpenAI">
-  <input type="password" id="geminiKey" placeholder="Clé Gemini">
-  <button onclick="connectAPIs()">Connecter</button>
-  <p id="status"></p>
-</div>
+          <label for="openaiKey">Clé OpenAI</label>
+          <div class="input-row">
+            <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+            <button class="ghost-btn" type="button" onclick="togglePassword('openaiKey')">Voir</button>
+          </div>
 
-<script src="script.js"></script>
+          <label for="geminiKey">Clé Gemini</label>
+          <div class="input-row">
+            <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+            <button class="ghost-btn" type="button" onclick="togglePassword('geminiKey')">Voir</button>
+          </div>
+
+          <button class="primary-btn" onclick="connectAPIs()">Connecter les clés</button>
+          <div id="apiStatus" class="status-box">En attente de connexion</div>
+        </div>
+
+        <button id="enterButton" class="enter-btn" onclick="enterApp()" disabled>Entrer dans l’application</button>
+      </div>
+    </section>
+
+    <section id="dashboard" class="dashboard hidden">
+      <header class="dashboard-header">
+        <div>
+          <div class="badge small">Dashboard</div>
+          <h1>TikTok Analyzer Pro</h1>
+          <p>Importe une vidéo, puis lance l’analyse pour obtenir un rapport façon SaaS.</p>
+        </div>
+        <button class="secondary-btn" onclick="backToLogin()">Modifier les clés</button>
+      </header>
+
+      <section class="upload-panel">
+        <div class="upload-box">
+          <h2>Importer une vidéo</h2>
+          <p>Formats conseillés : MP4, MOV, WEBM.</p>
+          <input id="videoInput" type="file" accept="video/*" />
+          <button class="primary-btn" onclick="analyzeVideo()">Analyser la vidéo</button>
+          <div id="analysisStatus" class="status-box">Aucune analyse lancée</div>
+        </div>
+      </section>
+
+      <section id="results" class="results-grid hidden">
+        <article class="score-card main-score">
+          <span>Score viral</span>
+          <strong id="viralScore">--/100</strong>
+          <p id="globalSummary">Résultat en attente.</p>
+        </article>
+        <article class="score-card"><span>Hook</span><strong id="hookScore">--/10</strong><p id="hookText">En attente.</p></article>
+        <article class="score-card"><span>Rythme</span><strong id="rhythmScore">--/10</strong><p id="rhythmText">En attente.</p></article>
+        <article class="score-card"><span>Clarté</span><strong id="clarityScore">--/10</strong><p id="clarityText">En attente.</p></article>
+        <article class="score-card"><span>CTA</span><strong id="ctaScore">--/10</strong><p id="ctaText">En attente.</p></article>
+      </section>
+
+      <section id="actionPlan" class="action-plan hidden">
+        <h2>Plan d’action recommandé</h2>
+        <ol id="actionList"></ol>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
