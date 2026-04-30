@@ -20,6 +20,18 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPlans();
   renderIdeas();
   initThumbnail();
+
+  // Si les clés sont déjà enregistrées et que Patrick était déjà entré dans l'app,
+  // un simple F5 reste sur le dashboard au lieu de revenir sur la page connexion.
+  const k = getKeys();
+  if (localStorage.getItem('TA_APP_UNLOCKED') === '1' && (k.openai || k.gemini)) {
+    setTimeout(() => {
+      enterApp(false);
+      const lastPage = localStorage.getItem('TA_LAST_PAGE') || 'analyze';
+      const btn = document.querySelector(`[data-page="${lastPage}"]`) || document.querySelector('[data-page="analyze"]');
+      switchPage(lastPage, btn);
+    }, 80);
+  }
 });
 
 function qs(id){return document.getElementById(id)}
@@ -39,14 +51,14 @@ async function connectAPIs(){
   }catch(e){
     setApiStatus('✅ Clés enregistrées. Le test distant n’a pas répondu, mais tu peux entrer dans l’application.','ok');
   }
-  qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
+  localStorage.setItem('TA_APP_UNLOCKED','1'); qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
 }
 function setApiStatus(msg,type){qs('apiStatus').textContent=msg; qs('apiStatus').className='status-box '+(type==='ok'?'status-ok':type==='error'?'status-error':'')}
 function updateApiLabels(){const k=getKeys(); qs('openaiLabel').textContent=k.openai?'Oui':'Non'; qs('geminiLabel').textContent=k.gemini?'Oui':'Non'; qs('openaiDot').classList.toggle('ok',!!k.openai); qs('geminiDot').classList.toggle('ok',!!k.gemini)}
-function enterApp(){qs('loginScreen').classList.add('hidden'); qs('app').classList.remove('hidden'); updateApiLabels(); renderThumbnail();}
-function backToLogin(){qs('app').classList.add('hidden'); qs('loginScreen').classList.remove('hidden');}
+function enterApp(save=true){ if(save) localStorage.setItem('TA_APP_UNLOCKED','1'); qs('loginScreen').classList.add('hidden'); qs('app').classList.remove('hidden'); updateApiLabels(); renderThumbnail();}
+function backToLogin(){localStorage.removeItem('TA_APP_UNLOCKED'); qs('app').classList.add('hidden'); qs('loginScreen').classList.remove('hidden');}
 
-function switchPage(page, btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); qs('page-'+page).classList.add('active'); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); qs('pageTitle').textContent=titles[page][0]; qs('pageSub').textContent=titles[page][1]; if(page==='thumbnails') setTimeout(renderThumbnail,50)}
+function switchPage(page, btn){localStorage.setItem('TA_LAST_PAGE', page); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); qs('page-'+page).classList.add('active'); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); qs('pageTitle').textContent=titles[page][0]; qs('pageSub').textContent=titles[page][1]; if(page==='thumbnails') setTimeout(renderThumbnail,50)}
 function dragOver(e){e.preventDefault(); qs('dropZone').classList.add('drag')}
 function dragLeave(e){e.preventDefault(); qs('dropZone').classList.remove('drag')}
 function dropVideo(e){e.preventDefault(); qs('dropZone').classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) pickVideo(f)}
@@ -65,7 +77,7 @@ async function extractFrames(file, count=2){
       try{ if(url) URL.revokeObjectURL(url); }catch(e){}
       resolve(frames);
     };
-    const maxWait = setTimeout(()=>done([]), 6500);
+    const maxWait = setTimeout(()=>done([]), 2200);
     try{
       const video=document.createElement('video');
       url=URL.createObjectURL(file);
@@ -78,7 +90,7 @@ async function extractFrames(file, count=2){
         let idx=0;
         const grab=()=>{
           if(idx>=times.length){ clearTimeout(maxWait); done(frames); return; }
-          const localTimeout=setTimeout(()=>{ idx++; grab(); }, 1800);
+          const localTimeout=setTimeout(()=>{ idx++; grab(); }, 650);
           video.onseeked=()=>{
             clearTimeout(localTimeout);
             try{
@@ -107,22 +119,23 @@ async function analyzeVideo(){
   qs('results').innerHTML=`<div class="vy-video-list"><article class="vy-video-card analyzing-card">
     <div class="vy-card-main"><div class="vy-thumb-wrap"><div class="vy-thumb empty">Analyse...</div></div>
     <div class="vy-info-area"><div class="vy-title-row"><h3>${escapeHtml(selectedVideo.name)}</h3></div>
-      <div class="vy-meta-row"><span class="vy-status pending">⏳ Analyse en cours</span><span>⚡ Mode rapide stable</span><span>•</span><span>max 30–45 sec</span></div>
+      <div class="vy-meta-row"><span class="vy-status pending">⏳ Analyse en cours</span><span>⚡ Mode rapide stable</span><span>•</span><span>max 15 sec</span></div>
       <div class="vy-plan-box"><b>🚀 Préparation du rapport</b><p>Je récupère seulement quelques informations légères pour éviter que les vidéos longues bloquent.</p><p>Si l’API tarde trop, l’outil affiche quand même un rapport ultra pédagogique au lieu de tourner sans fin.</p></div>
       <div class="progress-soft"><i></i></div>
     </div></div></article></div>`;
-  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours — maximum 45 secondes.'; qs('step3').classList.add('active');
+  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours — maximum 15 secondes.'; qs('step3').classList.add('active');
   let frames=[];
   try{ frames = await extractFrames(selectedVideo,2); }catch(e){ frames=[]; }
   const payload={
     action:'analyze', openaiKey:k.openai, geminiKey:k.gemini,
     videoName:selectedVideo.name, videoSize:Math.round(selectedVideo.size/1024/1024), duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
-    frames
+    frames,
+    fastMode:true
   };
   let report=null;
   try{
     const controller = new AbortController();
-    const timer = setTimeout(()=>controller.abort(), 42000);
+    const timer = setTimeout(()=>controller.abort(), 14000);
     const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
     clearTimeout(timer);
     const data=await res.json().catch(()=>null);
