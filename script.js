@@ -100,23 +100,77 @@ async function analyzeVideo(){
   lastAnalysis={id:Date.now(), date:new Date().toLocaleString('fr-FR'), video:selectedVideo.name, report};
   saveHistory(lastAnalysis); renderReport(report); renderHistory(); qs('analysisStatus').textContent='Analyse terminée et sauvegardée dans l’historique.'; qs('analyzeBtn').disabled=false;
 }
-function localFallbackReport(p){
-  const hook=p.hook || 'Ça a dégénéré direct…';
-  return {score:76,potential:'Bon potentiel à améliorer',summaryTitle:'Vidéo exploitable avec besoin de relances plus fortes',summaryText:'La base est bonne, mais il faut guider davantage le spectateur. Le début doit annoncer un conflit clair, le milieu doit relancer la curiosité, et la fin doit donner envie de commenter.',scores:{hook:7,rhythm:7,clarity:8,cta:6,emotion:8,thumbnail:7},
-  cards:{hook:'Le hook ne doit pas seulement être dans les 3 premières secondes. Il faut un hook d’entrée, puis des micro-hooks toutes les 8 à 12 secondes pour empêcher le spectateur de partir.',rhythm:'Coupe les silences, ajoute des zooms légers sur les réactions et garde une rupture visuelle dès que l’histoire ralentit.',clarity:'Explique qui parle, ce qui se passe, et pourquoi c’est important. Une personne débutante doit comprendre sans contexte.',cta:'La fin doit poser une question simple : “Tu aurais fait quoi à sa place ?” ou “Team qui dans cette histoire ?”'},
-  timeline:[['0–3 sec','Hook d’entrée : commence par une phrase choc, par exemple : “Attends, là ça a vraiment dégénéré…”'],['4–8 sec','Contexte ultra simple : qui est là, quel est le problème, pourquoi on doit regarder.'],['9–15 sec','Premier micro-hook : annonce qu’il va se passer quelque chose, sans tout dévoiler.'],['16–30 sec','Accélère le rythme : coupe les hésitations, garde uniquement les réactions utiles.'],['Milieu','Relance émotionnelle : ajoute une phrase type “Et là, personne ne s’attendait à sa réponse.”'],['Dernières secondes','Fin ouverte : ne termine pas platement. Pose une question pour déclencher les commentaires.']],
-  hooks:[hook,'Attends la fin, parce que sa réaction est lunaire…','Là, tout le monde pensait que ça allait se calmer…','Personne n’avait prévu qu’il allait répondre ça.','À ta place, tu aurais réagi comment ?'],
-  actions:['Ajouter un hook très clair dès la première seconde.','Mettre une relance toutes les 8 à 12 secondes.','Supprimer les blancs et les passages qui n’apportent rien.','Ajouter des sous-titres gros et lisibles.','Finir avec une question simple pour obtenir des commentaires.'],
-  beginner:{do:['Commencer par le moment le plus fort, pas par l’introduction.','Écrire les sous-titres comme si la personne regardait sans le son.','Mettre un zoom léger quand quelqu’un réagit.'],dont:['Ne pas commencer par “bonjour” ou une explication lente.','Ne pas laisser 3 secondes sans mouvement ou sans parole.','Ne pas finir sans question ou sans suspense.']}}
+function ensureReport(r){
+  const base = localFallbackReport({});
+  r = r || {};
+  return {
+    ...base, ...r,
+    scores:{...base.scores,...(r.scores||{})},
+    cards:{...base.cards,...(r.cards||{})},
+    deep:{...base.deep,...(r.deep||{})},
+    beginner:{...base.beginner,...(r.beginner||{})},
+    timeline:(r.timeline&&r.timeline.length)?r.timeline:base.timeline,
+    hooks:(r.hooks&&r.hooks.length)?r.hooks:base.hooks,
+    actions:(r.actions&&r.actions.length)?r.actions:base.actions,
+    rewrite:(r.rewrite&&r.rewrite.length)?r.rewrite:base.rewrite,
+    checklist:(r.checklist&&r.checklist.length)?r.checklist:base.checklist,
+    errorsToAvoid:(r.errorsToAvoid&&r.errorsToAvoid.length)?r.errorsToAvoid:base.errorsToAvoid
+  };
 }
-function renderReport(r){
+function localFallbackReport(p){
+  const hook=p?.hook || 'Ça a dégénéré direct…';
+  return {
+    score:78,
+    potential:'Bon potentiel — il faut renforcer les hooks et les explications',
+    summaryTitle:'Vidéo exploitable avec une structure TikTok plus claire',
+    summaryText:'La vidéo peut fonctionner si elle prend le spectateur par la main. Pour TikTok, il faut expliquer très vite pourquoi il faut rester, puis relancer l’attention régulièrement. Un débutant doit retenir ceci : début fort, contexte simple, relances fréquentes, fin avec question.',
+    scores:{hook:7,rhythm:7,clarity:7,cta:6,emotion:8,thumbnail:7},
+    cards:{
+      hook:'Le hook n’est pas juste une phrase au début. Il faut un hook au début, un au milieu, un juste avant la fin, puis une dernière question qui donne envie de commenter.',
+      rhythm:'Le rythme doit éviter les blancs, les hésitations et les moments où l’image ne change pas. Dès que ça ralentit, il faut couper, zoomer ou relancer.',
+      clarity:'Le spectateur ne connaît pas l’histoire. Il faut lui dire qui est là, quel est le problème, et ce qu’il doit regarder.',
+      cta:'La fin doit provoquer une réponse simple : “Tu aurais fait quoi ?”, “Il a raison ou pas ?”, “Tu veux la suite ?”.'
+    },
+    deep:{
+      global:'La vidéo doit être comprise par quelqu’un qui arrive sans contexte. Elle doit annoncer le problème vite, garder la tension, et ne jamais laisser le spectateur se demander pourquoi il regarde.',
+      hookStart:'Dans les 0 à 3 secondes, commence par le moment fort ou une phrase choc. Ne commence pas par une introduction lente. Exemple : “Là, personne ne s’attendait à cette réaction.”',
+      hookMiddle:'Au milieu, ajoute une phrase qui relance : “Et là, tout change.” C’est une alarme qui réveille les gens qui commencent à décrocher.',
+      hookEnd:'Juste avant la fin, annonce la chute : “Le pire arrive maintenant.” La personne doit sentir qu’elle perd quelque chose si elle quitte la vidéo.',
+      subtitles:'Sous-titres très gros, phrases courtes, contraste fort. Une seule idée par écran. Les mots importants peuvent être en jaune ou en gras.',
+      sound:'Évite les blancs audio. Si le son est faible, renforce les sous-titres. Si une réaction est importante, ajoute un petit bruitage ou un zoom.'
+    },
+    timeline:[
+      ['0–1 sec','Phrase choc immédiate. Pas de bonjour. Pas d’intro. Il faut créer une curiosité directe.'],
+      ['1–3 sec','Contexte simple : qui parle, quel problème, pourquoi on doit regarder. Une phrase seulement.'],
+      ['3–6 sec','Relance visuelle : zoom léger, changement de plan, texte fort ou petit bruitage.'],
+      ['6–10 sec','Micro-hook : “Regarde bien sa réaction.” Il faut empêcher le spectateur de scroller.'],
+      ['10–18 sec','Couper les longueurs. Chaque seconde doit apporter une information, une émotion ou une tension.'],
+      ['18–25 sec','Préparer la suite : “À ce moment-là, tout le monde pense que c’est terminé…”'],
+      ['Milieu','Relance émotionnelle : surprise, rire, tension, malaise, colère ou débat.'],
+      ['10 sec avant la fin','Annoncer la chute : “Le plus fou arrive maintenant.”'],
+      ['Dernières secondes','Question commentaire : “Tu aurais fait quoi à sa place ?”.']
+    ],
+    hooks:[hook,'Attends sa réaction, elle change tout…','Là, tout le monde pensait que ça allait se calmer…','Regarde bien ce qu’il fait juste après.','Personne n’avait prévu cette réponse.','Tu aurais fait quoi à sa place ?','Il a raison ou il abuse ?','S1 EP2 : tu veux voir la suite ?'],
+    actions:['Renforcer la première phrase.','Ajouter une relance toutes les 6 à 10 secondes.','Couper les blancs et hésitations.','Mettre des sous-titres gros et lisibles.','Créer une miniature claire avec 3 à 5 mots maximum.','Terminer par une question simple.','Préparer la suite si c’est une saison.'],
+    rewrite:['Hook : “Là, ça devait être calme… mais ça a dégénéré.”','Milieu : “Et là, tout le monde bloque.”','Fin : “Tu aurais répondu quoi ?”','Titre : “Il pensait avoir raison… jusqu’à cette réponse.”'],
+    checklist:['Comprend-on le sujet en 3 secondes ?','Y a-t-il une relance avant 10 secondes ?','Les sous-titres sont-ils lisibles sur téléphone ?','La fin pose-t-elle une question ?','La miniature est-elle claire sans être mensongère ?'],
+    errorsToAvoid:['Commencer par une intro lente.','Mettre un texte trop petit ou trop long.','Laisser un silence inutile.','Tout dévoiler dans la première phrase.','Finir sans question ni promesse de suite.'],
+    beginner:{do:['Commence par le moment le plus fort.','Explique comme si la personne ne connaissait rien.','Relance souvent avec une phrase courte.','Mets des sous-titres très gros.','Finis par une question simple.'],dont:['Ne commence pas lentement.','Ne surcharge pas l’écran.','Ne laisse pas de blanc inutile.','Ne fais pas une miniature trop chargée.','Ne termine pas sans CTA.']}
+  };
+}
+function renderReport(input){
+  const r = ensureReport(input);
   qs('results').innerHTML=`
-  <div class="results-head"><div><span class="result-chip">Rapport ultra détaillé</span><h2>📋 Analyse complète</h2></div><button class="secondary-btn" onclick="copyReport()">Copier le rapport</button></div>
+  <div class="results-head"><div><span class="result-chip">Rapport ultra pédagogique</span><h2>📋 Analyse complète — mode débutant total</h2><p>Objectif : expliquer exactement quoi améliorer, pourquoi c’est important, et comment le faire.</p></div><button class="secondary-btn" onclick="copyReport()">Copier le rapport</button></div>
   <div class="score-hero"><div class="score-ring"><strong>${r.score}</strong><span>/100</span></div><div><span class="potential">${r.potential}</span><h3>${r.summaryTitle}</h3><p>${r.summaryText}</p></div><div class="score-bars">${bar('Hook',r.scores.hook)}${bar('Rythme',r.scores.rhythm)}${bar('Clarté',r.scores.clarity)}${bar('CTA',r.scores.cta)}${bar('Émotion',r.scores.emotion)}${bar('Miniature',r.scores.thumbnail)}</div></div>
+  <div class="lesson-box"><h3>🧠 Explication simple pour Patrick</h3><p>${r.deep.global}</p></div>
   <div class="cards-grid"><article class="report-card"><h3>🎣 Hook global</h3><b>${r.scores.hook}/10</b><p>${r.cards.hook}</p></article><article class="report-card"><h3>⚡ Rythme</h3><b>${r.scores.rhythm}/10</b><p>${r.cards.rhythm}</p></article><article class="report-card"><h3>🧠 Clarté</h3><b>${r.scores.clarity}/10</b><p>${r.cards.clarity}</p></article><article class="report-card"><h3>📢 Fin / CTA</h3><b>${r.scores.cta}/10</b><p>${r.cards.cta}</p></article></div>
-  <div class="wide-card"><h3>⏱ Analyse seconde par seconde</h3><div class="timeline">${r.timeline.map(x=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}</div></div>
-  <div class="two-col"><div class="wide-card"><h3>🔥 Hooks à placer partout</h3><div class="pill-list">${r.hooks.map(h=>`<div class="pill">${h}</div>`).join('')}</div></div><div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div></div>
-  <div class="beginner-box"><h3>🧩 Mode débutant total : fais ça / ne fais pas ça</h3><div class="do-dont"><div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div><div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div></div></div>`;
+  <div class="wide-card"><h3>🔥 Les hooks ne sont pas seulement au début</h3><div class="hook-map"><div><b>1. Début</b><p>${r.deep.hookStart}</p></div><div><b>2. Milieu</b><p>${r.deep.hookMiddle}</p></div><div><b>3. Avant la fin</b><p>${r.deep.hookEnd}</p></div></div></div>
+  <div class="wide-card"><h3>⏱ Analyse détaillée étape par étape</h3><div class="timeline">${r.timeline.map(x=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}</div></div>
+  <div class="two-col"><div class="wide-card"><h3>📝 Sous-titres & son</h3><p>${r.deep.subtitles}</p><p>${r.deep.sound}</p></div><div class="wide-card"><h3>🔥 Hooks prêts à utiliser</h3><div class="pill-list">${r.hooks.map(h=>`<div class="pill">${h}</div>`).join('')}</div></div></div>
+  <div class="two-col"><div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div><div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div></div>
+  <div class="beginner-box"><h3>🧩 Mode débutant total : fais ça / ne fais pas ça</h3><div class="do-dont"><div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div><div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div></div></div>
+  <div class="two-col"><div class="wide-card"><h3>📌 Checklist avant publication</h3><ul>${r.checklist.map(a=>`<li>${a}</li>`).join('')}</ul></div><div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div></div>`;
 }
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
 function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
