@@ -1,196 +1,237 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TikTok Analyzer Pro — Patrick Gautier</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <section id="loginScreen" class="login-screen">
+    <div class="login-glow login-glow-a"></div>
+    <div class="login-glow login-glow-b"></div>
     <div class="login-card">
-      <div class="badge">TikTok Analyzer Pro</div>
-      <h1>Connexion API</h1>
-      <p class="login-subtitle">Colle tes clés une seule fois. Elles restent dans le navigateur de l’ordinateur.</p>
+      <div class="login-badge">TikTok Analyzer Pro</div>
+      <h1>Connexion à l’analyseur</h1>
+      <p>Colle tes clés une fois, enregistre, puis entre dans le dashboard complet.</p>
 
-      <label>Clé OpenAI</label>
-      <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+      <div class="api-card">
+        <div class="api-card-head">
+          <div>
+            <span class="api-chip">🔐 Connexion API</span>
+            <h2>OpenAI + Gemini</h2>
+          </div>
+          <span class="api-live" id="apiLive">En attente</span>
+        </div>
 
-      <label>Clé Gemini</label>
-      <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+        <label for="openaiKey">Clé OpenAI</label>
+        <div class="input-row">
+          <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
+          <button type="button" onclick="togglePassword('openaiKey')">Voir</button>
+        </div>
 
-      <div class="login-actions">
-        <button id="saveKeysBtn" class="btn primary">Enregistrer + tester</button>
-        <button id="enterAppBtn" class="btn success">Entrer dans l’application</button>
+        <label for="geminiKey">Clé Gemini</label>
+        <div class="input-row">
+          <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+          <button type="button" onclick="togglePassword('geminiKey')">Voir</button>
+        </div>
+
+        <button class="primary-btn full" onclick="connectAPIs()">⚡ Connecter les clés</button>
+        <div id="apiStatus" class="status-box">Clés non enregistrées</div>
       </div>
-      <p id="apiStatus" class="status"></p>
+
+      <button id="enterButton" class="enter-btn" onclick="enterApp()" disabled>Entrer dans l’application</button>
+      <p class="login-note">Les clés sont conservées dans le navigateur de ce PC.</p>
     </div>
   </section>
 
-  <main id="appShell" class="app-shell hidden">
+  <main id="app" class="app hidden">
     <aside class="sidebar">
       <div class="brand">
-        <h2>TikTok Pro</h2>
-        <p>Patrick Gautier</p>
+        <div class="brand-icon">🎬</div>
+        <div>
+          <strong>TikTok<span>Pro</span></strong>
+          <small>Patrick Gautier</small>
+          <em>Analyzer Dashboard</em>
+        </div>
       </div>
-      <div class="section-title">Analyseur Dashboard</div>
-      <nav>
-        <button class="nav-btn active" data-view="analyze">🎬 Analyse vidéo</button>
-        <button class="nav-btn" data-view="thumbnails">🖼 Miniatures TikTok</button>
-        <button class="nav-btn" data-view="history">🗂 Historique</button>
-        <button class="nav-btn" data-view="scripts">✍️ Générateur script</button>
-        <button class="nav-btn" data-view="planner">📅 Planifier mes vidéos</button>
-        <button class="nav-btn" data-view="help">🧭 Mode débutant total</button>
+
+      <nav class="nav">
+        <p>Principal</p>
+        <button class="nav-btn active" data-page="analyze" onclick="switchPage('analyze', this)">📊 Analyser une vidéo</button>
+        <button class="nav-btn" data-page="history" onclick="switchPage('history', this)">📂 Historique <span id="historyCount">0</span></button>
+        <button class="nav-btn" data-page="planner" onclick="switchPage('planner', this)">📅 Planifier mes vidéos</button>
+        <p>Création</p>
+        <button class="nav-btn" data-page="scripts" onclick="switchPage('scripts', this)">✍️ Générateur scripts</button>
+        <button class="nav-btn" data-page="thumbnails" onclick="switchPage('thumbnails', this)">🖼️ Miniatures TikTok</button>
+        <button class="nav-btn" data-page="ideas" onclick="switchPage('ideas', this)">💡 Idées de contenu</button>
+        <button class="nav-btn" data-page="checklist" onclick="switchPage('checklist', this)">✅ Checklist</button>
       </nav>
-      <div class="sidebar-footer">
-        <button id="newAnalysisSideBtn" class="small-btn">+ Nouvelle analyse</button>
+
+      <div class="side-api">
+        <div class="side-api-title">🔐 API connectées</div>
+        <div class="api-line"><span id="openaiDot" class="dot"></span> OpenAI <strong id="openaiLabel">Non</strong></div>
+        <div class="api-line"><span id="geminiDot" class="dot"></span> Gemini <strong id="geminiLabel">Non</strong></div>
+        <button class="mini-btn" onclick="backToLogin()">Modifier les clés</button>
       </div>
     </aside>
 
     <section class="content">
       <header class="topbar">
         <div>
-          <h1 id="pageTitle">Analyse vidéo</h1>
-          <p id="pageSubtitle">Glisse une vidéo TikTok/Reels, puis lance l’analyse complète.</p>
+          <h1 id="pageTitle">📊 Analyser une vidéo</h1>
+          <p id="pageSub">Glisse ta vidéo au centre, choisis le contexte, puis lance l’analyse.</p>
         </div>
-        <button id="clearKeysBtn" class="btn ghost">Réinitialiser clés</button>
+        <button class="secondary-btn" onclick="resetAnalyzer()">Nouvelle analyse</button>
       </header>
 
-      <section id="view-analyze" class="view active">
-        <div class="grid two">
-          <div class="card upload-card">
-            <h2>Importer la vidéo</h2>
-            <p>Dépose ici ta vidéo. L’outil extrait automatiquement des images clés : début, milieu et fin.</p>
-            <div id="dropZone" class="drop-zone">
-              <input id="videoInput" type="file" accept="video/*" hidden />
-              <div class="drop-icon">⬆️</div>
-              <h3>Glisse ta vidéo ici</h3>
-              <p>ou clique pour choisir un fichier</p>
-            </div>
-            <div id="videoMeta" class="meta"></div>
-            <button id="analyzeBtn" class="btn primary wide" disabled>Analyser la vidéo</button>
-            <p id="analyzeStatus" class="status"></p>
+      <section id="page-analyze" class="page active">
+        <div class="steps">
+          <div class="step active"><b>1</b><span>Upload vidéo</span></div>
+          <i></i>
+          <div class="step" id="step2"><b>2</b><span>Contexte</span></div>
+          <i></i>
+          <div class="step" id="step3"><b>3</b><span>Rapport</span></div>
+        </div>
+
+        <div id="dropZone" class="drop-zone" onclick="document.getElementById('videoInput').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropVideo(event)">
+          <div class="drop-icon">🎥</div>
+          <h2>Dépose ta vidéo ici</h2>
+          <p>Clique ou glisse-dépose ton fichier vidéo</p>
+          <span>MP4 · MOV · WEBM · AVI · MKV</span>
+        </div>
+        <input id="videoInput" class="hidden-input" type="file" accept="video/*" onchange="pickVideo(this.files[0])" />
+
+        <div id="videoPreview" class="video-preview hidden">
+          <div class="preview-icon">🎬</div>
+          <div>
+            <strong id="videoName">Aucune vidéo</strong>
+            <small id="videoMeta">—</small>
           </div>
+          <button onclick="removeVideo()">✕</button>
+        </div>
 
-          <div class="card beginner-card">
-            <h2>Mode débutant total</h2>
-            <div class="do-dont">
-              <div><strong>✅ Fais ça</strong><p>Regarde surtout les blocs “à corriger maintenant”, “hooks à placer” et “script prêt”.</p></div>
-              <div><strong>❌ Ne fais pas ça</strong><p>Ne change pas tout d’un coup. Corrige 3 choses maximum par vidéo.</p></div>
+        <div id="contextPanel" class="context-grid hidden">
+          <label>Durée approximative
+            <select id="durationSelect">
+              <option value="75">1 min à 1 min 30</option>
+              <option value="45">30 sec à 1 min</option>
+              <option value="120">1 min 30 à 2 min</option>
+              <option value="180">2 à 3 min</option>
+            </select>
+          </label>
+          <label>Type de contenu
+            <select id="contentType">
+              <option>Famille / drama</option>
+              <option>Humour / dispute</option>
+              <option>Vlog / quotidien</option>
+              <option>Storytime</option>
+              <option>Produit / business</option>
+            </select>
+          </label>
+          <label>Hook actuel
+            <input id="hookInput" type="text" placeholder="Ex : Ça a dégénéré direct…" />
+          </label>
+        </div>
+
+        <div class="analyze-cta">
+          <div>
+            <strong>⚡ Prêt à analyser ?</strong>
+            <p id="analysisStatus">Dépose d’abord une vidéo.</p>
+          </div>
+          <button id="analyzeBtn" class="primary-btn" onclick="analyzeVideo()" disabled>🚀 Analyser ma vidéo</button>
+        </div>
+
+        <section id="results" class="results hidden"></section>
+      </section>
+
+      <section id="page-history" class="page">
+        <div class="module-head">
+          <h2>📂 Historique des analyses</h2>
+          <button class="secondary-btn" onclick="clearHistory()">Vider</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <section id="page-planner" class="page">
+        <div class="module-head"><h2>📅 Planifier mes vidéos</h2><button class="secondary-btn" onclick="fillPlannerFromLast()">Reprendre dernière analyse</button></div>
+        <div class="planner-grid">
+          <label>Titre vidéo <input id="plannerTitle" placeholder="Ex : Ça a dégénéré direct…" /></label>
+          <label>Saison <input id="plannerSeason" type="number" value="1" min="1" /></label>
+          <label>Épisode <input id="plannerEpisode" type="number" value="1" min="1" /></label>
+          <label>Date <input id="plannerDate" type="date" /></label>
+          <label>Heure <input id="plannerTime" type="time" value="19:30" /></label>
+          <label>Hook principal <input id="plannerHook" placeholder="Phrase d’ouverture" /></label>
+        </div>
+        <button class="primary-btn" onclick="savePlan()">Enregistrer dans le planning</button>
+        <div id="plannerList" class="planning-list"></div>
+      </section>
+
+      <section id="page-scripts" class="page">
+        <div class="module-head"><h2>✍️ Générateur de script TikTok</h2><button class="secondary-btn" onclick="generateScriptFromLast()">Utiliser dernière analyse</button></div>
+        <div class="script-box">
+          <label>Sujet / idée
+            <textarea id="scriptInput" rows="4" placeholder="Décris la vidéo ou utilise la dernière analyse…"></textarea>
+          </label>
+          <button class="primary-btn" onclick="generateScript()">Générer un script optimisé</button>
+          <div id="scriptOutput" class="generated-output"></div>
+        </div>
+      </section>
+
+      <section id="page-thumbnails" class="page">
+        <div class="module-head"><h2>🖼️ Générateur de miniatures TikTok</h2><button class="secondary-btn" onclick="loadVideoForThumb()">Utiliser la vidéo analysée</button></div>
+        <div class="thumb-layout">
+          <div class="thumb-panel">
+            <h3>1. Source image</h3>
+            <div class="mini-upload" onclick="document.getElementById('thumbVideoInput').click()">🎥 Choisir une vidéo pour récupérer une frame</div>
+            <input id="thumbVideoInput" class="hidden-input" type="file" accept="video/*" onchange="prepareThumbVideo(this.files[0])" />
+            <div class="mini-upload" onclick="document.getElementById('thumbImageInput').click()">🖼️ Importer une image PNG/JPG</div>
+            <input id="thumbImageInput" class="hidden-input" type="file" accept="image/*" onchange="prepareThumbImage(this.files[0])" />
+            <video id="thumbVideo" class="hidden" muted playsinline></video>
+            <label class="range-label">Choisir le moment de la vidéo <input id="thumbTime" type="range" min="0" max="100" value="35" oninput="seekThumbFrame()" /></label>
+            <button class="secondary-btn full" onclick="captureThumbFrame()">Capturer cette image</button>
+
+            <h3>2. Style viral</h3>
+            <div class="style-grid">
+              <button class="style-btn active" onclick="setThumbStyle('viral', this)">⚡ Viral choc</button>
+              <button class="style-btn" onclick="setThumbStyle('drama', this)">🔥 Drama</button>
+              <button class="style-btn" onclick="setThumbStyle('clean', this)">✨ Propre</button>
+              <button class="style-btn" onclick="setThumbStyle('mystery', this)">🕵️ Mystère</button>
+              <button class="style-btn" onclick="setThumbStyle('humour', this)">😂 Humour</button>
+            </div>
+
+            <h3>3. Texte</h3>
+            <label>Grand texte <input id="thumbText" value="ÇA A DÉGÉNÉRÉ" oninput="renderThumbnail()" /></label>
+            <label>Petit texte <input id="thumbSubtext" value="Regarde jusqu’à la fin" oninput="renderThumbnail()" /></label>
+            <div class="season-row">
+              <label>Saison <input id="thumbSeason" type="number" value="1" min="1" oninput="renderThumbnail()" /></label>
+              <label>Épisode <input id="thumbEpisode" type="number" value="1" min="1" oninput="renderThumbnail()" /></label>
+            </div>
+            <label>Format
+              <select id="thumbFormat" onchange="renderThumbnail()">
+                <option value="tiktok">TikTok 9:16</option>
+                <option value="youtube">YouTube 16:9</option>
+                <option value="square">Carré 1:1</option>
+              </select>
+            </label>
+            <button class="primary-btn full" onclick="downloadThumbnail()">Télécharger la miniature PNG</button>
+          </div>
+          <div class="thumb-preview-wrap">
+            <canvas id="thumbCanvas" width="1080" height="1920"></canvas>
+            <div class="prompt-card">
+              <h3>Prompt Leonardo conseillé</h3>
+              <p id="leonardoPrompt"></p>
+              <button class="secondary-btn" onclick="copyLeonardoPrompt()">Copier le prompt</button>
             </div>
           </div>
         </div>
-
-        <div id="reportContainer" class="report-container"></div>
       </section>
 
-      <section id="view-thumbnails" class="view">
-        <div class="grid two">
-          <div class="card">
-            <h2>Générateur de miniatures TikTok</h2>
-            <p>Le plus propre : on récupère une vraie image de la vidéo, puis on ajoute un titre, un badge saison/épisode et un style viral. Pas besoin de Leonardo pour cette partie.</p>
-            <div class="form-grid">
-              <label>Format
-                <select id="thumbFormat">
-                  <option value="tiktok">TikTok / Reels / Shorts — 9:16</option>
-                  <option value="youtube">YouTube — 16:9</option>
-                  <option value="square">Carré — 1:1</option>
-                </select>
-              </label>
-              <label>Style
-                <select id="thumbStyle">
-                  <option value="viral">Viral choc</option>
-                  <option value="cinema">Cinématique</option>
-                  <option value="clean">Propre / lisible</option>
-                  <option value="humour">Humour</option>
-                  <option value="mystery">Mystère / suspense</option>
-                </select>
-              </label>
-              <label>Saison
-                <input id="thumbSeason" type="number" min="1" value="1" />
-              </label>
-              <label>Épisode
-                <input id="thumbEpisode" type="number" min="1" value="1" />
-              </label>
-              <label>Texte principal
-                <input id="thumbTitle" type="text" value="ÇA A DÉGÉNÉRÉ" placeholder="Ex : ÇA A DÉGÉNÉRÉ" />
-              </label>
-              <label>Image de la vidéo
-                <select id="thumbFrameSelect">
-                  <option value="">Analyse ou importe une vidéo d’abord</option>
-                </select>
-              </label>
-            </div>
-            <div class="row thumb-actions">
-              <button id="generateThumbBtn" class="btn primary">Créer la miniature</button>
-              <button id="downloadThumbBtn" class="btn success" disabled>Télécharger PNG</button>
-            </div>
-            <p id="thumbStatus" class="status"></p>
-          </div>
-          <div class="card">
-            <h2>Aperçu</h2>
-            <div class="thumb-preview-wrap">
-              <canvas id="thumbCanvas" class="thumb-canvas" width="1080" height="1920"></canvas>
-            </div>
-            <div class="report-section compact">
-              <h3>Prompt Leonardo / IA image</h3>
-              <p>Si tu veux refaire une miniature plus poussée dans Leonardo, copie ce prompt.</p>
-              <div id="thumbPrompt" class="text-output small-output"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="view-history" class="view">
-        <div class="card">
-          <div class="row between">
-            <div>
-              <h2>Historique des analyses</h2>
-              <p>Toutes les vidéos analysées apparaissent ici automatiquement.</p>
-            </div>
-            <button id="clearHistoryBtn" class="btn ghost">Vider l’historique</button>
-          </div>
-          <div id="historyList" class="history-list"></div>
-        </div>
-      </section>
-
-      <section id="view-scripts" class="view">
-        <div class="card">
-          <h2>Générateur de script TikTok</h2>
-          <p>Choisis une analyse existante, puis génère un script plus propre, plus clair et plus TikTok.</p>
-          <select id="scriptAnalysisSelect"></select>
-          <button id="generateScriptBtn" class="btn primary">Générer / améliorer le script</button>
-          <div id="scriptOutput" class="text-output"></div>
-        </div>
-      </section>
-
-      <section id="view-planner" class="view">
-        <div class="card">
-          <h2>Planifier mes vidéos</h2>
-          <p>Prépare le titre, le hook, la légende et l’horaire recommandé.</p>
-          <select id="plannerAnalysisSelect"></select>
-          <button id="createPlanBtn" class="btn primary">Créer un plan de publication</button>
-          <div id="plannerOutput" class="planner-grid"></div>
-        </div>
-      </section>
-
-      <section id="view-help" class="view">
-        <div class="card help-card">
-          <h2>Mode débutant total — comment utiliser l’outil</h2>
-          <ol>
-            <li><strong>Analyse une vidéo.</strong> Ne cherche pas la perfection, commence par comprendre le score.</li>
-            <li><strong>Lis “Fais ça / Ne fais pas ça”.</strong> C’est la partie la plus importante.</li>
-            <li><strong>Corrige d’abord le hook.</strong> Le début décide si les gens restent ou partent.</li>
-            <li><strong>Ajoute des hooks au milieu.</strong> Toutes les 5 à 8 secondes, il faut relancer l’attention.</li>
-            <li><strong>Travaille la fin.</strong> Les 3 dernières secondes doivent pousser à commenter, suivre ou regarder une autre vidéo.</li>
-          </ol>
-        </div>
-      </section>
+      <section id="page-ideas" class="page"><div class="empty-card"><h2>💡 Idées de contenu</h2><p>Banque d’idées pour vidéos famille, drama, humour et storytime.</p><div id="ideasList" class="pill-list"></div></div></section>
+      <section id="page-checklist" class="page"><div class="empty-card"><h2>✅ Checklist TikTok</h2><ul><li>Hook fort dans les 2 premières secondes</li><li>Relance visuelle vers 8–12 secondes</li><li>Relance émotionnelle au milieu</li><li>Phrase de fin qui pousse au commentaire</li><li>Miniature lisible en moins d’une seconde</li></ul></div></section>
     </section>
   </main>
 
-  <video id="hiddenVideo" class="hidden" muted playsinline></video>
-  <canvas id="frameCanvas" class="hidden"></canvas>
   <script src="script.js"></script>
 </body>
 </html>
