@@ -54,28 +54,49 @@ function pickVideo(file){if(!file||!file.type.startsWith('video/')){alert('Chois
 function removeVideo(){selectedVideo=null; qs('videoPreview').classList.add('hidden'); qs('contextPanel').classList.add('hidden'); qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Dépose d’abord une vidéo.'; qs('results').classList.add('hidden')}
 function resetAnalyzer(){removeVideo(); qs('results').innerHTML=''; switchPage('analyze', document.querySelector('[data-page="analyze"]'));}
 
-async function extractFrames(file, count=4){
+async function extractFrames(file, count=2){
+  // Version stable : on ne bloque jamais l'application si la vidéo est longue ou si le navigateur refuse de lire une frame.
   return new Promise((resolve)=>{
-    const video=document.createElement('video'); const url=URL.createObjectURL(file); const frames=[];
-    video.preload='metadata'; video.muted=true; video.playsInline=true; video.src=url;
-    video.onloadedmetadata=async()=>{
-      const duration=video.duration || parseInt(qs('durationSelect').value||60,10); const times=[0.7,0.18,0.48,0.82].slice(0,count).map(p=>Math.min(duration-0.2,Math.max(0.1,duration*p)));
-      const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d');
-      let idx=0;
-      const grab=()=>{
-        if(idx>=times.length){URL.revokeObjectURL(url); resolve(frames); return;}
-        video.currentTime=times[idx];
-      };
-      video.onseeked=()=>{
-        canvas.width=360; canvas.height=640;
-        const vw=video.videoWidth||360, vh=video.videoHeight||640;
-        const scale=Math.max(canvas.width/vw,canvas.height/vh); const w=vw*scale,h=vh*scale,x=(canvas.width-w)/2,y=(canvas.height-h)/2;
-        ctx.fillStyle='#111';ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(video,x,y,w,h);
-        frames.push({time:Math.round(times[idx]), image:canvas.toDataURL('image/jpeg',0.72)}); idx++; grab();
-      };
-      grab();
+    let finished=false;
+    let url='';
+    const done=(frames=[])=>{
+      if(finished) return;
+      finished=true;
+      try{ if(url) URL.revokeObjectURL(url); }catch(e){}
+      resolve(frames);
     };
-    video.onerror=()=>{URL.revokeObjectURL(url); resolve([])};
+    const maxWait = setTimeout(()=>done([]), 6500);
+    try{
+      const video=document.createElement('video');
+      url=URL.createObjectURL(file);
+      const frames=[];
+      video.preload='metadata'; video.muted=true; video.playsInline=true; video.src=url;
+      video.onloadedmetadata=()=>{
+        const duration=Number.isFinite(video.duration) ? video.duration : 60;
+        const times=[Math.min(1.2, Math.max(.2,duration*.05)), Math.min(duration-0.2, Math.max(1,duration*.55))].slice(0,count);
+        const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d');
+        let idx=0;
+        const grab=()=>{
+          if(idx>=times.length){ clearTimeout(maxWait); done(frames); return; }
+          const localTimeout=setTimeout(()=>{ idx++; grab(); }, 1800);
+          video.onseeked=()=>{
+            clearTimeout(localTimeout);
+            try{
+              canvas.width=220; canvas.height=390;
+              const vw=video.videoWidth||220, vh=video.videoHeight||390;
+              const scale=Math.max(canvas.width/vw,canvas.height/vh);
+              const w=vw*scale,h=vh*scale,x=(canvas.width-w)/2,y=(canvas.height-h)/2;
+              ctx.fillStyle='#111';ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(video,x,y,w,h);
+              frames.push({time:Math.round(times[idx]), image:canvas.toDataURL('image/jpeg',0.45)});
+            }catch(e){}
+            idx++; grab();
+          };
+          try{ video.currentTime=times[idx]; }catch(e){ idx++; grab(); }
+        };
+        grab();
+      };
+      video.onerror=()=>{ clearTimeout(maxWait); done([]); };
+    }catch(e){ clearTimeout(maxWait); done([]); }
   });
 }
 
@@ -83,19 +104,30 @@ async function analyzeVideo(){
   if(!selectedVideo){alert('Ajoute une vidéo avant.'); return;}
   const k=getKeys();
   qs('results').classList.remove('hidden');
-  qs('results').innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Analyse en cours…</h2><p>Extraction des images clés, lecture du contexte et génération d’un rapport ultra détaillé.</p></div>';
-  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours…'; qs('step3').classList.add('active');
-  const frames = await extractFrames(selectedVideo,4);
+  qs('results').innerHTML=`<div class="vy-video-list"><article class="vy-video-card analyzing-card">
+    <div class="vy-card-main"><div class="vy-thumb-wrap"><div class="vy-thumb empty">Analyse...</div></div>
+    <div class="vy-info-area"><div class="vy-title-row"><h3>${escapeHtml(selectedVideo.name)}</h3></div>
+      <div class="vy-meta-row"><span class="vy-status pending">⏳ Analyse en cours</span><span>⚡ Mode rapide stable</span><span>•</span><span>max 30–45 sec</span></div>
+      <div class="vy-plan-box"><b>🚀 Préparation du rapport</b><p>Je récupère seulement quelques informations légères pour éviter que les vidéos longues bloquent.</p><p>Si l’API tarde trop, l’outil affiche quand même un rapport ultra pédagogique au lieu de tourner sans fin.</p></div>
+      <div class="progress-soft"><i></i></div>
+    </div></div></article></div>`;
+  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours — maximum 45 secondes.'; qs('step3').classList.add('active');
+  let frames=[];
+  try{ frames = await extractFrames(selectedVideo,2); }catch(e){ frames=[]; }
   const payload={
     action:'analyze', openaiKey:k.openai, geminiKey:k.gemini,
-    videoName:selectedVideo.name, duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
+    videoName:selectedVideo.name, videoSize:Math.round(selectedVideo.size/1024/1024), duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
     frames
   };
   let report=null;
   try{
-    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data=await res.json(); if(data && data.report) report=data.report;
-  }catch(e){ console.warn(e); }
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), 42000);
+    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
+    clearTimeout(timer);
+    const data=await res.json().catch(()=>null);
+    if(data && data.report) report=data.report;
+  }catch(e){ console.warn('Analyse distante trop longue, fallback local:', e); }
   if(!report) report=localFallbackReport(payload);
   lastAnalysis={id:Date.now(), date:new Date().toLocaleString('fr-FR'), video:selectedVideo.name, report};
   saveHistory(lastAnalysis); renderReport(report); renderHistory(); qs('analysisStatus').textContent='Analyse terminée et sauvegardée dans l’historique.'; qs('analyzeBtn').disabled=false;
@@ -242,11 +274,45 @@ function escapeHtml(str=''){ return String(str).replace(/[&<>'"]/g, c => ({'&':'
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
 function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
 function copyReport(){navigator.clipboard.writeText(reportToText()).then(()=>alert('Rapport copié'))}
-function saveHistory(item){const h=JSON.parse(localStorage.getItem('TA_HISTORY')||'[]'); h.unshift(item); localStorage.setItem('TA_HISTORY',JSON.stringify(h.slice(0,30))); lastAnalysis=item;}
+function saveHistory(item){
+  const h=JSON.parse(localStorage.getItem('TA_HISTORY')||'[]');
+  h.unshift(item);
+  localStorage.setItem('TA_HISTORY',JSON.stringify(h.slice(0,50)));
+  lastAnalysis=item;
+}
 function getHistory(){return JSON.parse(localStorage.getItem('TA_HISTORY')||'[]')}
-function renderHistory(){const h=getHistory(); if(qs('historyCount')) qs('historyCount').textContent=h.length; const el=qs('historyList'); if(!el)return; el.innerHTML=h.length?h.map(item=>`<div class="history-item" onclick="openHistory(${item.id})"><h3>${item.video}</h3><p>${item.date} · Score ${item.report.score}/100 · ${item.report.summaryTitle}</p></div>`).join(''):'<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'}
-function openHistory(id){const item=getHistory().find(x=>x.id===id); if(!item)return; lastAnalysis=item; switchPage('analyze',document.querySelector('[data-page="analyze"]')); qs('results').classList.remove('hidden'); renderReport(item.report);}
-function clearHistory(){localStorage.removeItem('TA_HISTORY'); renderHistory();}
+function renderHistory(){
+  const h=getHistory();
+  if(qs('historyCount')) qs('historyCount').textContent=h.length;
+  const el=qs('historyList'); if(!el)return;
+  el.innerHTML=h.length?h.map(item=>`<div class="history-item history-row">
+    <div onclick="openHistory(${item.id})" class="history-open">
+      <h3>${escapeHtml(item.video)}</h3>
+      <p>${item.date} · Score ${item.report?.score||'--'}/100 · ${escapeHtml(item.report?.summaryTitle||'Analyse sauvegardée')}</p>
+    </div>
+    <div class="history-actions">
+      <button class="secondary-btn small" onclick="event.stopPropagation();openHistory(${item.id})">Voir</button>
+      <button class="danger-btn small" onclick="event.stopPropagation();deleteHistoryItem(${item.id})">Supprimer</button>
+    </div>
+  </div>`).join(''):'<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'
+}
+function openHistory(id){
+  const item=getHistory().find(x=>x.id===id); if(!item)return;
+  lastAnalysis=item;
+  switchPage('analyze',document.querySelector('[data-page="analyze"]'));
+  qs('results').classList.remove('hidden');
+  renderReport(item.report);
+}
+function deleteHistoryItem(id){
+  if(!confirm('Supprimer uniquement cette analyse de l’historique ?')) return;
+  const h=getHistory().filter(x=>x.id!==id);
+  localStorage.setItem('TA_HISTORY',JSON.stringify(h));
+  renderHistory();
+}
+function clearHistory(){
+  if(!confirm('Vider tout l’historique ?')) return;
+  localStorage.removeItem('TA_HISTORY'); renderHistory();
+}
 function fillPlannerFromLast(){const r=lastAnalysis?.report || getHistory()[0]?.report; if(!r){alert('Fais une analyse avant.');return;} qs('plannerTitle').value=r.hooks[0]||r.summaryTitle; qs('plannerHook').value=r.hooks[1]||''}
 function savePlan(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); plans.unshift({id:Date.now(),title:qs('plannerTitle').value||'Nouvelle vidéo',season:qs('plannerSeason').value,episode:qs('plannerEpisode').value,date:qs('plannerDate').value,time:qs('plannerTime').value,hook:qs('plannerHook').value}); localStorage.setItem('TA_PLANS',JSON.stringify(plans)); renderPlans();}
 function renderPlans(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); const el=qs('plannerList'); if(!el)return; el.innerHTML=plans.map(p=>`<div class="plan-item"><h3>S${p.season} EP${p.episode} — ${p.title}</h3><p>${p.date||'Date à choisir'} à ${p.time||'--:--'} · Hook : ${p.hook||'à écrire'}</p></div>`).join('')}
