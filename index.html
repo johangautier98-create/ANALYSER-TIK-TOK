@@ -78,9 +78,9 @@
       <header class="topbar">
         <div>
           <h1 id="pageTitle">📊 Analyser une vidéo</h1>
-          <p id="pageSub">Glisse ta vidéo au centre, choisis le contexte, puis lance l’analyse.</p>
+          <p id="pageSub">Glisse ta vidéo au centre, ajoute le contexte, puis lance une analyse ultra détaillée.</p>
         </div>
-        <button class="secondary-btn" onclick="resetAnalyzer()">Nouvelle analyse</button>
+        <button class="secondary-btn" onclick="newAnalysisFromAnywhere()">Nouvelle analyse</button>
       </header>
 
       <section id="page-analyze" class="page active">
@@ -89,7 +89,7 @@
           <i></i>
           <div class="step" id="step2"><b>2</b><span>Contexte</span></div>
           <i></i>
-          <div class="step" id="step3"><b>3</b><span>Rapport</span></div>
+          <div class="step" id="step3"><b>3</b><span>Rapport détaillé</span></div>
         </div>
 
         <div id="dropZone" class="drop-zone" onclick="document.getElementById('videoInput').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropVideo(event)">
@@ -101,7 +101,7 @@
         <input id="videoInput" class="hidden-input" type="file" accept="video/*" onchange="pickVideo(this.files[0])" />
 
         <div id="videoPreview" class="video-preview hidden">
-          <div class="preview-icon">🎬</div>
+          <video id="miniVideo" muted controls></video>
           <div>
             <strong id="videoName">Aucune vidéo</strong>
             <small id="videoMeta">—</small>
@@ -125,10 +125,23 @@
               <option>Vlog / quotidien</option>
               <option>Storytime</option>
               <option>Produit / business</option>
+              <option>Pêche / passion</option>
             </select>
           </label>
           <label>Hook actuel
             <input id="hookInput" type="text" placeholder="Ex : Ça a dégénéré direct…" />
+          </label>
+          <label>Objectif de la vidéo
+            <select id="goalSelect">
+              <option>Faire regarder jusqu’à la fin</option>
+              <option>Faire commenter</option>
+              <option>Faire rire</option>
+              <option>Créer de la tension</option>
+              <option>Vendre / faire cliquer</option>
+            </select>
+          </label>
+          <label class="wide-field">Description rapide de ce qu’on voit dans la vidéo
+            <textarea id="videoDescription" rows="3" placeholder="Ex : dispute familiale, moment gênant, réaction drôle, chute à la fin..."></textarea>
           </label>
         </div>
 
@@ -143,10 +156,14 @@
         <section id="results" class="results hidden">
           <div class="results-head">
             <div>
-              <span class="result-chip">Rapport type Videlyze</span>
-              <h2>📋 Analyse complète</h2>
+              <span class="result-chip">Rapport expert ultra détaillé</span>
+              <h2>📋 Analyse complète de la vidéo</h2>
             </div>
-            <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
+            <div class="result-actions">
+              <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
+              <button class="secondary-btn" onclick="goToScriptFromCurrent()">Créer un script corrigé</button>
+              <button class="secondary-btn" onclick="goToPlannerFromCurrent()">Planifier cette vidéo</button>
+            </div>
           </div>
 
           <div class="score-hero">
@@ -160,29 +177,80 @@
           </div>
 
           <div class="cards-grid">
-            <article class="report-card"><h3>🎣 Hook 0–3 sec</h3><b id="hookScore">--/10</b><p id="hookAdvice">—</p></article>
-            <article class="report-card"><h3>⚡ Rythme</h3><b id="rhythmScore">--/10</b><p id="rhythmAdvice">—</p></article>
+            <article class="report-card"><h3>🎣 Hook global</h3><b id="hookScore">--/10</b><p id="hookAdvice">—</p></article>
+            <article class="report-card"><h3>⚡ Rythme / rétention</h3><b id="rhythmScore">--/10</b><p id="rhythmAdvice">—</p></article>
             <article class="report-card"><h3>🧠 Clarté</h3><b id="clarityScore">--/10</b><p id="clarityAdvice">—</p></article>
-            <article class="report-card"><h3>📢 CTA</h3><b id="ctaScore">--/10</b><p id="ctaAdvice">—</p></article>
+            <article class="report-card"><h3>📢 CTA / fin</h3><b id="ctaScore">--/10</b><p id="ctaAdvice">—</p></article>
           </div>
 
-          <div class="wide-card">
-            <h3>⏱ Analyse seconde par seconde</h3>
-            <div id="timeline" class="timeline"></div>
+          <div class="wide-card"><h3>🧭 Explication simple pour débutant</h3><div id="beginnerGuide" class="prose-box"></div></div>
+          <div class="wide-card"><h3>⏱ Analyse seconde par seconde</h3><div id="timeline" class="timeline"></div></div>
+          <div class="wide-card"><h3>🎯 Hooks à placer partout dans la vidéo</h3><div id="hookMap" class="hook-map"></div></div>
+
+          <div class="two-col">
+            <div class="wide-card"><h3>🔥 Hooks alternatifs prêts à dire</h3><div id="hooksList" class="pill-list"></div></div>
+            <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol id="actionList"></ol></div>
           </div>
 
           <div class="two-col">
-            <div class="wide-card"><h3>🔥 Hooks alternatifs</h3><div id="hooksList" class="pill-list"></div></div>
-            <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol id="actionList"></ol></div>
+            <div class="wide-card"><h3>📝 Titres TikTok proposés</h3><div id="titlesList" class="pill-list vertical"></div></div>
+            <div class="wide-card"><h3>🏷️ Hashtags conseillés</h3><div id="hashtagsList" class="pill-list"></div></div>
           </div>
         </section>
       </section>
 
-      <section id="page-history" class="page"><div class="empty-card"><h2>📂 Historique</h2><p>Les prochaines analyses sauvegardées apparaîtront ici.</p></div></section>
-      <section id="page-planner" class="page"><div class="empty-card"><h2>📅 Planifier mes vidéos</h2><p>Prépare les hooks, titres et horaires de publication.</p></div></section>
-      <section id="page-scripts" class="page"><div class="empty-card"><h2>✍️ Générateur scripts</h2><p>Module prêt pour générer des scripts TikTok plus tard.</p></div></section>
-      <section id="page-ideas" class="page"><div class="empty-card"><h2>💡 Idées de contenu</h2><p>Banque d’idées pour vidéos famille, drama, humour et storytime.</p></div></section>
-      <section id="page-checklist" class="page"><div class="empty-card"><h2>✅ Checklist TikTok</h2><ul><li>Hook fort dans les 2 premières secondes</li><li>Zoom ou rupture visuelle au moment clé</li><li>Sous-titres lisibles</li><li>Fin ouverte pour commentaires</li></ul></div></section>
+      <section id="page-history" class="page">
+        <div class="page-tools">
+          <button class="primary-btn" onclick="newAnalysisFromAnywhere()">➕ Nouvelle analyse</button>
+          <button class="secondary-btn" onclick="clearHistory()">Vider l’historique</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <section id="page-planner" class="page">
+        <div class="tool-layout">
+          <div class="wide-card">
+            <h2>📅 Planifier mes vidéos</h2>
+            <p>Choisis une analyse sauvegardée, puis l’outil prépare le titre, l’heure, le hook de publication et le texte de description.</p>
+            <label>Analyse à planifier<select id="plannerAnalysis"></select></label>
+            <div class="planner-grid">
+              <label>Date de publication<input id="plannerDate" type="date"></label>
+              <label>Heure<input id="plannerTime" type="time" value="18:30"></label>
+              <label>Plateforme<select id="plannerPlatform"><option>TikTok</option><option>Reels Instagram</option><option>Shorts YouTube</option></select></label>
+            </div>
+            <button class="primary-btn" onclick="generatePlan()">Créer mon plan de publication</button>
+          </div>
+          <div id="plannerOutput" class="wide-card output-card"><h3>Ton plan apparaîtra ici</h3><p>Analyse une vidéo ou choisis une analyse dans l’historique.</p></div>
+        </div>
+      </section>
+
+      <section id="page-scripts" class="page">
+        <div class="tool-layout">
+          <div class="wide-card">
+            <h2>✍️ Générateur de script TikTok</h2>
+            <p>Transforme une analyse en script propre, simple, sans faute, avec hooks, relances et fin optimisée.</p>
+            <label>Analyse de départ<select id="scriptAnalysis"></select></label>
+            <label>Style du script<select id="scriptStyle"><option>Marseillais naturel</option><option>Très viral / tension</option><option>Humour léger</option><option>Storytime propre</option><option>Commercial propre</option></select></label>
+            <button class="primary-btn" onclick="generateScript()">Générer un script corrigé</button>
+          </div>
+          <div id="scriptOutput" class="wide-card output-card"><h3>Script prêt à lire</h3><p>Le script corrigé apparaîtra ici.</p></div>
+        </div>
+      </section>
+
+      <section id="page-ideas" class="page">
+        <div class="wide-card">
+          <h2>💡 Idées de contenu</h2>
+          <p>Angles simples à tester pour refaire une vidéo plus forte.</p>
+          <div id="ideasList" class="ideas-grid"></div>
+        </div>
+      </section>
+
+      <section id="page-checklist" class="page">
+        <div class="wide-card checklist-card">
+          <h2>✅ Checklist TikTok avant publication</h2>
+          <div id="checklistItems"></div>
+        </div>
+      </section>
     </section>
   </main>
 
