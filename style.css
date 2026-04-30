@@ -33,3 +33,55 @@
 .danger-soft{background:#fff1f2!important;border-color:#fecdd3!important}
 .danger-soft h3{color:#be123c}
 @media(max-width:900px){.hook-map{grid-template-columns:1fr}}
+
+/* === Patch Johan : score propre + miniatures drag/drop + scoring hooks === */
+.score-ring.no-slice,
+.score-ring{
+  background:linear-gradient(135deg,#6d4cff 0%,#8b5cf6 48%,#06b6d4 100%)!important;
+  color:#fff!important;
+  position:relative;
+  overflow:hidden;
+}
+.score-ring.no-slice::after{
+  content:"";
+  position:absolute;
+  inset:10px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.22);
+  pointer-events:none;
+}
+.score-ring small{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;opacity:.9;margin-top:4px}
+.score-explain{margin-top:12px;background:#f8f9ff;border:1px solid var(--border);border-radius:14px;padding:12px;color:#535873;line-height:1.55;font-size:13px}
+.hook-score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.hook-score-card{background:#f8f9ff;border:1px solid var(--border);border-radius:18px;padding:15px}
+.hook-score-card strong{display:block;color:#171a2e;margin-bottom:8px}
+.hook-score-card b{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,#6d4cff,#06b6d4);color:white;font-size:20px;margin-bottom:8px}
+.hook-score-card p{margin:0;color:#666b84;line-height:1.5;font-size:13px}
+.muted-text{color:#666b84!important}
+.mini-score{display:block;margin-top:8px;width:max-content;background:#ede9fe;color:#5b21b6;border-radius:999px;padding:4px 9px;font-style:normal;font-weight:900;font-size:11px}
+.mini-eval .bar-row{margin:6px 0}
+.thumb-drop{min-height:105px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:linear-gradient(180deg,#ffffff,#f4f6ff);border-color:#aeb7dc;transition:.2s}
+.thumb-drop strong{font-size:15px;color:#171a2e}
+.thumb-drop span{font-size:12px;color:#666b84;line-height:1.4}
+.thumb-drop:hover,.thumb-drop.drag{border-color:#6d4cff;background:#f4f1ff;transform:translateY(-2px);box-shadow:0 16px 35px rgba(109,76,255,.13)}
+.mini-choice{padding:13px;font-size:13px;background:#fff}
+@media(max-width:1100px){.hook-score-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.hook-score-grid{grid-template-columns:1fr}}
+
+/* === Rapport rangé et plus lisible === */
+.report-shell{display:flex;flex-direction:column;gap:18px}
+.report-header-clean{background:#fff;border:1px solid var(--border);border-radius:26px;padding:22px;box-shadow:var(--shadow);display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.report-header-clean h2{margin:10px 0 6px;font-size:28px}.report-header-clean p{margin:0;color:#666b84;line-height:1.55}
+.report-section{background:#fff;border:1px solid var(--border);border-radius:28px;padding:22px;box-shadow:var(--shadow)}
+.report-section .wide-card{box-shadow:none;border-color:#e7eaf5;background:#fbfcff}
+.section-title{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;border-bottom:1px solid #edf0f8;padding-bottom:14px}
+.section-title>span{min-width:38px;height:38px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#06b6d4);color:#fff;display:grid;place-items:center;font-weight:1000}
+.section-title h3{margin:0;font-size:22px;color:#15172e}.section-title p{margin:4px 0 0;color:#6b7088;line-height:1.45}
+.clean-hero{box-shadow:none;border:0;padding:0;grid-template-columns:155px 1fr 310px;background:transparent}.hero-copy h3{font-size:24px;margin:12px 0 8px}.hero-copy p{line-height:1.7;color:#4b516b}
+.priority-box{background:#f8f9ff;border:1px solid var(--border);border-radius:20px;padding:16px}.priority-box h4{margin:0 0 12px;color:#15172e}.priority-row{display:grid;gap:3px;padding:10px 0;border-top:1px solid #e8ebf6}.priority-row:first-of-type{border-top:0}.priority-row b{color:#4f46e5}.priority-row span{color:#59607a;font-size:13px;line-height:1.4}
+.score-dashboard-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.score-panel{background:#f8f9ff;border:1px solid var(--border);border-radius:20px;padding:16px}.score-panel.big{background:linear-gradient(135deg,#f5f3ff,#ecfeff)}.score-panel p{margin:10px 0 0;color:#626982;line-height:1.5;font-size:13px}.score-panel .bar-row{grid-template-columns:82px 1fr 42px}
+.clean-hooks{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px}.compact-card{margin-top:0}.ordered-pills .pill{display:flex;align-items:flex-start;gap:10px}.ordered-pills .pill b{min-width:26px;height:26px;border-radius:10px;background:#11142b;color:#fff;display:grid;place-items:center;font-size:12px}
+.clean-timeline{gap:12px}.clean-timeline .tl-item{border-left:0;border:1px solid #e7eaf5;background:#fbfcff;border-radius:18px;grid-template-columns:115px 1fr}.clean-timeline .tl-item b{background:#ede9fe;color:#5b21b6;border-radius:999px;padding:7px 10px;text-align:center;height:max-content}.clean-timeline .tl-item span{color:#3f465e;line-height:1.6}
+.clean-do-dont{margin-top:14px}.clean-do-dont ul,.clean-two-col ul,.clean-two-col ol{line-height:1.75;color:#3f465e}.clean-two-col{margin-top:0}.clean-two-col .wide-card{margin-top:0}
+@media(max-width:1200px){.clean-hero{grid-template-columns:1fr}.score-dashboard-grid,.clean-hooks{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.report-header-clean{flex-direction:column}.score-dashboard-grid,.clean-hooks,.clean-two-col{grid-template-columns:1fr}.clean-timeline .tl-item{grid-template-columns:1fr}}
