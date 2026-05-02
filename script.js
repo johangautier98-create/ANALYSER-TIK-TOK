@@ -20,6 +20,23 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPlans();
   renderIdeas();
   initThumbnail();
+  renderCompetitors();
+  renderMyChannel();
+
+  // FIX CRITIQUE: restaurer la session et la page après actualisation
+  const savedKeys = getKeys();
+  const hadSession = localStorage.getItem('TA_SESSION') === '1';
+  if (hadSession && (savedKeys.claude || savedKeys.openai || savedKeys.gemini)) {
+    // Rester dans l'app, pas retourner à la page de connexion
+    qs('loginScreen').classList.add('hidden');
+    qs('app').classList.remove('hidden');
+    updateApiLabels();
+    setTimeout(renderThumbnail, 50);
+    // Restaurer la dernière page visitée
+    const lastPage = localStorage.getItem('TA_LAST_PAGE') || 'analyze';
+    const btn = document.querySelector('[data-page="' + lastPage + '"]');
+    switchPage(lastPage, btn);
+  }
 });
 
 function qs(id){return document.getElementById(id)}
@@ -43,10 +60,32 @@ async function connectAPIs(){
 }
 function setApiStatus(msg,type){qs('apiStatus').textContent=msg; qs('apiStatus').className='status-box '+(type==='ok'?'status-ok':type==='error'?'status-error':'')}
 function updateApiLabels(){const k=getKeys(); if(qs('claudeLabel'))qs('claudeLabel').textContent=k.claude?'Oui':'Non'; qs('openaiLabel').textContent=k.openai?'Oui':'Non'; qs('geminiLabel').textContent=k.gemini?'Oui':'Non'; if(qs('claudeDot'))qs('claudeDot').classList.toggle('ok',!!k.claude); qs('openaiDot').classList.toggle('ok',!!k.openai); qs('geminiDot').classList.toggle('ok',!!k.gemini)}
-function enterApp(){qs('loginScreen').classList.add('hidden'); qs('app').classList.remove('hidden'); updateApiLabels(); renderThumbnail();}
-function backToLogin(){qs('app').classList.add('hidden'); qs('loginScreen').classList.remove('hidden');}
+function enterApp(){
+  localStorage.setItem('TA_SESSION','1');
+  qs('loginScreen').classList.add('hidden');
+  qs('app').classList.remove('hidden');
+  updateApiLabels();
+  renderThumbnail();
+}
+function backToLogin(){
+  localStorage.removeItem('TA_SESSION');
+  qs('app').classList.add('hidden');
+  qs('loginScreen').classList.remove('hidden');
+}
 
-function switchPage(page, btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); qs('page-'+page).classList.add('active'); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); qs('pageTitle').textContent=titles[page][0]; qs('pageSub').textContent=titles[page][1]; if(page==='thumbnails') setTimeout(renderThumbnail,50)}
+function switchPage(page, btn){
+  if(!qs('page-'+page)) return;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  qs('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(titles[page]){ qs('pageTitle').textContent=titles[page][0]; qs('pageSub').textContent=titles[page][1]; }
+  localStorage.setItem('TA_LAST_PAGE', page);
+  if(page==='thumbnails') setTimeout(renderThumbnail,50);
+  if(page==='mychannel') renderMyChannel();
+  if(page==='competitors') renderCompetitors();
+  if(page==='history') renderHistory();
+}
 function dragOver(e){e.preventDefault(); qs('dropZone').classList.add('drag')}
 function dragLeave(e){e.preventDefault(); qs('dropZone').classList.remove('drag')}
 function dropVideo(e){e.preventDefault(); qs('dropZone').classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) pickVideo(f)}
@@ -281,40 +320,51 @@ function getHistory(){return JSON.parse(localStorage.getItem('TA_HISTORY')||'[]'
 function renderHistory(){
   const h=getHistory(); if(qs('historyCount')) qs('historyCount').textContent=h.length;
   const el=qs('historyList'); if(!el)return;
-  if(!h.length){el.innerHTML='<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'; return;}
+  renderHistoryInto(el, h);
+}
+
+function renderHistoryInto(el, h){
+  if(!h||!h.length){el.innerHTML='<div class="empty-card"><h2>Aucune analyse</h2><p>Lance une première analyse pour la voir apparaître ici.</p></div>'; return;}
   el.innerHTML=h.map(item=>{
-    const sc=item.report.score||0;
+    const sc=item.report&&item.report.score||0;
     const col=sc>=80?'#00c48c':sc>=65?'#6c47ff':sc>=50?'#ff8c00':'#ff3d5a';
-    const pt=item.report.potential||'—';
-    return `<div class="history-item" onclick="openHistoryModal(${item.id})">
-      <div class="hist-thumb">🎬</div>
-      <div class="hist-info">
-        <h3>${item.video}</h3>
-        <p>${item.date}</p>
-        <small>${pt}</small>
+    const title=item.report&&item.report.summaryTitle||item.report&&item.report.potential||'—';
+    const thumbHtml = item.thumb
+      ? `<img src="${item.thumb}" class="hist-thumb-img" alt="miniature">`
+      : `<div class="hist-thumb-placeholder">🎬</div>`;
+    return `<div class="history-item-new" onclick="openReportModal(${item.id})">
+      <div class="hist-thumb-wrap">${thumbHtml}</div>
+      <div class="hist-info-main">
+        <div class="hist-video-name">${item.video||'Vidéo'}</div>
+        <div class="hist-analysis-title">${title}</div>
+        <div class="hist-date">${item.date||''}</div>
       </div>
-      <div class="hist-score" style="color:${col}">${sc}<span>/100</span></div>
+      <div class="hist-score-col">
+        <div class="hist-score-big" style="color:${col}">${sc}<span class="hist-score-den">/100</span></div>
+        <div class="hist-score-badge" style="background:${col}20;color:${col}">
+          ${sc>=80?'Excellent':sc>=65?'Bon':sc>=50?'Correct':'À améliorer'}
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
-function openHistoryModal(id){
+function openReportModal(id){
   const item=getHistory().find(x=>x.id===id); if(!item)return; lastAnalysis=item;
-  let modal=qs('histModal');
-  if(!modal){
-    modal=document.createElement('div'); modal.id='histModal';
-    modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,10,20,.85);backdrop-filter:blur(8px);overflow-y:auto;padding:24px 16px;';
-    modal.innerHTML='<div id="histModalInner" style="max-width:860px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #eee"><strong style="font-size:15px">📋 Rapport — '+item.video+'</strong><button onclick="closeHistModal()" style="background:none;border:1px solid #ddd;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px">✕ Fermer</button></div><div id="histModalReport" style="padding:22px"></div></div>';
-    document.body.appendChild(modal);
-  } else {
-    modal.style.display='block';
-    modal.querySelector('strong').textContent='📋 Rapport — '+item.video;
-  }
-  qs('histModalReport').innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Chargement…</h2></div>';
-  setTimeout(()=>{ qs('histModalReport').innerHTML=''; renderReportInto(qs('histModalReport'), item.report); }, 80);
+  const modal=qs('reportModal'); if(!modal)return;
+  qs('modalVideoTitle').textContent=item.video||'Rapport';
+  qs('modalVideoMeta').textContent=item.date+' · Score '+((item.report&&item.report.score)||0)+'/100';
+  const body=qs('reportModalBody');
+  body.innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Chargement du rapport…</h2></div>';
+  modal.classList.remove('hidden');
   document.body.style.overflow='hidden';
+  setTimeout(()=>{ body.innerHTML=''; renderReportInto(body, item.report); }, 80);
 }
-function closeHistModal(){const m=qs('histModal'); if(m)m.style.display='none'; document.body.style.overflow='';}
-function openHistory(id){openHistoryModal(id);}
+function closeReportModal(){
+  const modal=qs('reportModal'); if(modal) modal.classList.add('hidden');
+  document.body.style.overflow='';
+}
+function openHistoryModal(id){openReportModal(id);}
+function openHistory(id){openReportModal(id);}
 function clearHistory(){localStorage.removeItem('TA_HISTORY'); renderHistory();}
 function fillPlannerFromLast(){const r=lastAnalysis?.report || getHistory()[0]?.report; if(!r){alert('Fais une analyse avant.');return;} qs('plannerTitle').value=r.hooks[0]||r.summaryTitle; qs('plannerHook').value=r.hooks[1]||''}
 function savePlan(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); plans.unshift({id:Date.now(),title:qs('plannerTitle').value||'Nouvelle vidéo',season:qs('plannerSeason').value,episode:qs('plannerEpisode').value,date:qs('plannerDate').value,time:qs('plannerTime').value,hook:qs('plannerHook').value}); localStorage.setItem('TA_PLANS',JSON.stringify(plans)); renderPlans();}
@@ -364,3 +414,284 @@ function drawStrokeText(ctx,text,x,y,maxWidth,fontSize,fill,stroke,lineHeight){c
 function updatePrompt(){const prompt=`Miniature TikTok verticale 9:16, style ${thumbState.style}, très viral, gros texte lisible, contraste fort, badge S${qs('thumbSeason')?.value||1} EP${qs('thumbEpisode')?.value||1}, émotion forte, sujet: ${qs('thumbText')?.value||'ça a dégénéré'}, image réaliste, couleurs puissantes, composition claire pour mobile, pas de texte illisible.`; if(qs('leonardoPrompt')) qs('leonardoPrompt').textContent=prompt;}
 function copyLeonardoPrompt(){navigator.clipboard.writeText(qs('leonardoPrompt').textContent); alert('Prompt copié')}
 function downloadThumbnail(){const a=document.createElement('a'); a.download=`miniature_S${qs('thumbSeason').value}_EP${qs('thumbEpisode').value}.png`; a.href=qs('thumbCanvas').toDataURL('image/png'); a.click();}
+
+
+// ══════════════════════════════════════
+// ONGLETS SOURCE (Fichier / URL)
+// ══════════════════════════════════════
+function switchSourceTab(tab) {
+  qs('tabFile').classList.toggle('active', tab === 'file');
+  qs('tabUrl').classList.toggle('active', tab === 'url');
+  if (qs('panelFile')) qs('panelFile').classList.toggle('hidden', tab !== 'file');
+  if (qs('panelUrl'))  qs('panelUrl').classList.toggle('hidden', tab !== 'url');
+}
+
+// ══════════════════════════════════════
+// ANALYSE VIA URL TIKTOK
+// ══════════════════════════════════════
+let urlVideoData = null;
+
+async function loadFromUrl() {
+  const url = (qs('tiktokUrlInput') && qs('tiktokUrlInput').value.trim()) || '';
+  if (!url) { alert('Colle un lien TikTok ou YouTube.'); return; }
+
+  const preview = qs('urlVideoPreview');
+  preview.innerHTML = '<div class="loading-card"><div class="spinner"></div><p>Chargement des infos vidéo…</p></div>';
+  preview.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/tiktok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'video_info', url })
+    });
+    const data = await res.json();
+    if (data.ok && data.video) {
+      urlVideoData = data.video;
+      preview.innerHTML = `
+        <div class="video-preview" style="margin-top:0">
+          <div class="preview-icon" style="background:#f0edff;font-size:22px">
+            ${data.video.thumbnail ? '<img src="' + data.video.thumbnail + '" style="width:46px;height:46px;object-fit:cover;border-radius:12px">' : '🎬'}
+          </div>
+          <div>
+            <strong>${data.video.title || 'Vidéo TikTok'}</strong>
+            <small>Par ${data.video.author || '—'}</small>
+          </div>
+          <button onclick="analyzeFromUrl()" class="primary-btn" style="margin-left:auto;padding:10px 16px;font-size:13px">
+            🚀 Analyser cette vidéo
+          </button>
+        </div>`;
+      qs('contextPanel').classList.remove('hidden');
+      qs('step2').classList.add('active');
+    } else {
+      preview.innerHTML = '<div class="loading-card" style="color:#dc2626">❌ ' + (data.error || 'Vidéo introuvable ou privée') + '</div>';
+    }
+  } catch (e) {
+    preview.innerHTML = '<div class="loading-card" style="color:#dc2626">❌ Erreur : ' + e.message + '</div>';
+  }
+}
+
+async function analyzeFromUrl() {
+  if (!urlVideoData) { alert("Charge une video via le lien d'abord."); return; }
+  const k = getKeys();
+  if (!k.claude && !k.openai && !k.gemini) { alert("Configure une cle API d'abord."); return; }
+
+  qs('results').classList.remove('hidden');
+  qs("results").innerHTML = `<div class="loading-card"><div class="spinner"></div><h2>Analyse en cours...</h2><p>Analyse via le lien en cours.</p></div>`;
+  qs('analyzeBtn').disabled = true;
+  qs('analysisStatus').textContent = 'Analyse en cours…';
+  qs('step3').classList.add('active');
+
+  const payload = {
+    action: 'analyze',
+    claudeKey: k.claude, openaiKey: k.openai, geminiKey: k.gemini,
+    videoName: urlVideoData.title || 'Vidéo TikTok',
+    videoUrl:  urlVideoData.url,
+    author:    urlVideoData.author,
+    duration:  qs('durationSelect') ? qs('durationSelect').value : '75',
+    contentType: qs('contentType') ? qs('contentType').value : 'famille/drama',
+    hook:      qs('hookInput') ? qs('hookInput').value : '',
+    frames:    []
+  };
+
+  let report = null;
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data && data.report) report = data.report;
+  } catch (e) { console.warn(e); }
+  if (!report) report = localFallbackReport(payload);
+
+  const item = { id: Date.now(), date: new Date().toLocaleString('fr-FR'), video: urlVideoData.title || 'Vidéo TikTok', report };
+  saveHistory(item); lastAnalysis = item;
+  renderReport(report);
+  renderHistory();
+  qs('analysisStatus').textContent = 'Analyse terminée !';
+  qs('analyzeBtn').disabled = false;
+}
+
+// ══════════════════════════════════════
+// RECHERCHE CHAINE TIKTOK
+// ══════════════════════════════════════
+async function searchChannel() {
+  const input = qs('channelInput');
+  const username = (input ? input.value.trim() : '').replace('@', '');
+  if (!username) { alert("Entre un nom de chaine TikTok (ex: @moncompte)"); return; }
+
+  const card = qs('channelCard');
+  card.classList.remove('hidden');
+  card.innerHTML = '<div class="loading-card" style="padding:16px"><div class="spinner"></div><p>Recherche de la chaîne @' + username + '…</p></div>';
+
+  try {
+    const res = await fetch('/api/tiktok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'channel_info', username })
+    });
+    const data = await res.json();
+
+    if (data.ok && data.channel) {
+      const ch = data.channel;
+      const fmt = n => {
+        if (!n && n !== 0) return '—';
+        if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+        if (n >= 1000)    return (n/1000).toFixed(1) + 'K';
+        return n.toLocaleString('fr-FR');
+      };
+      card.innerHTML = `
+        <div class="channel-card-inner">
+          <div class="channel-avatar-wrap">
+            ${ch.avatar
+              ? '<img src="' + ch.avatar + '" class="channel-avatar" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+              : ''}
+            <div class="channel-avatar-fallback" style="${ch.avatar ? 'display:none' : ''}">
+              ${ch.displayName ? ch.displayName[0].toUpperCase() : '?'}
+            </div>
+          </div>
+          <div class="channel-info">
+            <div class="channel-name">${ch.displayName || ch.handle}</div>
+            <div class="channel-handle">${ch.handle}</div>
+            <a href="${ch.url}" target="_blank" class="channel-link">Voir sur TikTok ↗</a>
+          </div>
+          <div class="channel-stats">
+            <div class="channel-stat">
+              <span class="stat-val">${fmt(ch.followers)}</span>
+              <span class="stat-lbl">Abonnés</span>
+            </div>
+            <div class="channel-stat">
+              <span class="stat-val">${fmt(ch.videos)}</span>
+              <span class="stat-lbl">Vidéos</span>
+            </div>
+            <div class="channel-stat">
+              <span class="stat-val">${fmt(ch.likes)}</span>
+              <span class="stat-lbl">J'aimes</span>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      card.innerHTML = '<div class="loading-card" style="color:#dc2626">❌ ' + (data.error || 'Chaîne introuvable') + '</div>';
+    }
+  } catch (e) {
+    card.innerHTML = '<div class="loading-card" style="color:#dc2626">❌ Erreur : ' + e.message + '</div>';
+  }
+}
+
+// Permet de lancer searchChannel avec la touche Entrée
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = qs('channelInput');
+  if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') searchChannel(); });
+  const urlInp = qs('tiktokUrlInput');
+  if (urlInp) urlInp.addEventListener('keydown', e => { if (e.key === 'Enter') loadFromUrl(); });
+});
+
+// ══════════════════════════════════════
+// MA CHAINE + CONCURRENTS
+// ══════════════════════════════════════
+
+function getMyChannels(){ return JSON.parse(localStorage.getItem('TA_MY_CHANNELS')||'[]'); }
+function getCompetitors(){ return JSON.parse(localStorage.getItem('TA_COMPETITORS')||'[]'); }
+
+function addMyChannel(){ qs('channelModal').classList.remove('hidden'); document.body.style.overflow='hidden'; setTimeout(()=>{ const inp=qs('channelModalInput'); if(inp) inp.focus(); },100); }
+function closeChannelModal(){ qs('channelModal').classList.add('hidden'); document.body.style.overflow=''; }
+
+async function confirmAddChannel(){
+  const inp=qs('channelModalInput');
+  const username=(inp?inp.value.trim():'').replace('@','');
+  if(!username){ qs('channelModalStatus').textContent='Entre un nom de chaine.'; return; }
+  qs('channelModalStatus').textContent='Recherche en cours...';
+  const ch = await fetchChannelInfo(username);
+  const channels = getMyChannels().filter(c=>c.handle!=='@'+username);
+  channels.unshift(ch);
+  localStorage.setItem('TA_MY_CHANNELS', JSON.stringify(channels.slice(0,5)));
+  closeChannelModal();
+  renderMyChannel();
+}
+
+async function addCompetitor(){
+  const inp=qs('competitorInput');
+  const username=(inp?inp.value.trim():'').replace('@','');
+  const cat=qs('competitorCategory')?qs('competitorCategory').value:'Famille/Drama';
+  if(!username){ alert('Entre un nom de chaine.'); return; }
+  const ch = await fetchChannelInfo(username, cat);
+  const list=getCompetitors().filter(c=>c.handle!=='@'+username);
+  list.unshift(ch);
+  localStorage.setItem('TA_COMPETITORS', JSON.stringify(list.slice(0,20)));
+  if(inp) inp.value='';
+  renderCompetitors();
+}
+
+async function fetchChannelInfo(username, category){
+  let avatar='', displayName='@'+username, bio='';
+  try{
+    const r=await fetch('/api/tiktok',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'channel_info',username})});
+    const data=await r.json();
+    if(data.ok&&data.channel){
+      avatar=data.channel.avatar||'';
+      displayName=data.channel.displayName||('@'+username);
+    }
+  }catch(e){}
+  return { handle:'@'+username, displayName, avatar, url:'https://www.tiktok.com/@'+username, category:category||'Ma chaîne', addedAt:new Date().toLocaleDateString('fr-FR') };
+}
+
+function renderMyChannel(){
+  const el=qs('myChannelCard'); if(!el)return;
+  const channels=getMyChannels();
+  if(!channels.length){
+    el.innerHTML='<div class="no-channel-msg"><p>👆 Clique sur "Ajouter / Changer ma chaîne" pour configurer ton compte TikTok.</p></div>';
+  } else {
+    const ch=channels[0];
+    el.innerHTML=`<div class="channel-profile-inner">
+      <div class="channel-profile-avatar">
+        ${ch.avatar?`<img src="${ch.avatar}" onerror="this.style.display='none'" alt="avatar">`:'<div class="avatar-fallback">'+(ch.displayName||'?')[0].toUpperCase()+'</div>'}
+      </div>
+      <div class="channel-profile-info">
+        <div class="channel-profile-name">${ch.displayName}</div>
+        <div class="channel-profile-handle">${ch.handle}</div>
+        <a href="${ch.url}" target="_blank" class="channel-profile-link">Voir sur TikTok ↗</a>
+      </div>
+      <div class="channel-profile-stats">
+        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">Abonnés</span></div>
+        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">J'aimes</span></div>
+        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">Vidéos</span></div>
+        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">Abonnements</span></div>
+      </div>
+    </div>`;
+  }
+  // History for this channel
+  const histEl=qs('myChannelHistory'); if(!histEl)return;
+  renderHistoryInto(histEl, getHistory());
+}
+
+function renderCompetitors(){
+  const el=qs('competitorList'); if(!el)return;
+  const list=getCompetitors();
+  if(!list.length){
+    el.innerHTML='<div class="empty-card"><h2>Aucun concurrent</h2><p>Ajoute des chaînes pour les suivre ici.</p></div>';
+    return;
+  }
+  el.innerHTML=list.map((ch,i)=>`
+    <div class="competitor-card">
+      <div class="competitor-avatar">
+        ${ch.avatar?`<img src="${ch.avatar}" onerror="this.style.display='none'" alt="avatar">`:'<div class="avatar-fallback">'+(ch.displayName||'?')[0].toUpperCase()+'</div>'}
+      </div>
+      <div class="competitor-info">
+        <div class="competitor-name">${ch.displayName}</div>
+        <div class="competitor-handle">${ch.handle}</div>
+        <span class="competitor-cat">${ch.category||'Autre'}</span>
+      </div>
+      <div class="competitor-actions">
+        <a href="${ch.url}" target="_blank" class="secondary-btn" style="padding:8px 14px;font-size:12px;text-decoration:none">Voir ↗</a>
+        <button onclick="removeCompetitor(${i})" class="del-btn" style="margin-left:6px">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function removeCompetitor(i){
+  const list=getCompetitors(); list.splice(i,1);
+  localStorage.setItem('TA_COMPETITORS',JSON.stringify(list));
+  renderCompetitors();
+}
