@@ -66,6 +66,8 @@
         <p>Principal</p>
         <button class="nav-btn active" data-page="analyze" onclick="switchPage('analyze', this)">📊 Analyser une vidéo</button>
         <button class="nav-btn" data-page="history" onclick="switchPage('history', this)">📂 Historique <span id="historyCount">0</span></button>
+        <button class="nav-btn" data-page="mychannel" onclick="switchPage('mychannel', this)">📺 Ma Chaîne</button>
+        <button class="nav-btn" data-page="competitors" onclick="switchPage('competitors', this)">🔍 Concurrents</button>
         <button class="nav-btn" data-page="planner" onclick="switchPage('planner', this)">📅 Planifier mes vidéos</button>
         <p>Création</p>
         <button class="nav-btn" data-page="scripts" onclick="switchPage('scripts', this)">✍️ Générateur scripts</button>
@@ -101,6 +103,24 @@
           <div class="step" id="step3"><b>3</b><span>Rapport</span></div>
         </div>
 
+        <!-- RECHERCHE CHAINE TIKTOK -->
+        <div class="channel-search-bar">
+          <div class="channel-search-inner">
+            <span class="channel-search-icon">🔍</span>
+            <input id="channelInput" type="text" placeholder="Cherche une chaîne TikTok : @toncompte" autocomplete="off" />
+            <button onclick="searchChannel()" class="channel-search-btn">Rechercher</button>
+          </div>
+        </div>
+        <div id="channelCard" class="channel-card hidden"></div>
+
+        <!-- ONGLETS : Fichier ou Lien TikTok -->
+        <div class="source-tabs">
+          <button class="source-tab active" id="tabFile" onclick="switchSourceTab('file')">📁 Depuis mon ordinateur</button>
+          <button class="source-tab" id="tabUrl" onclick="switchSourceTab('url')">🎵 Lien TikTok / YouTube</button>
+        </div>
+
+        <!-- PANEL FICHIER -->
+        <div id="panelFile">
         <div id="dropZone" class="drop-zone" onclick="document.getElementById('videoInput').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropVideo(event)">
           <div class="drop-icon">🎥</div>
           <h2>Dépose ta vidéo ici</h2>
@@ -108,6 +128,21 @@
           <span>MP4 · MOV · WEBM · AVI · MKV</span>
         </div>
         <input id="videoInput" class="hidden-input" type="file" accept="video/*" onchange="pickVideo(this.files[0])" />
+        </div><!-- /panelFile -->
+
+        <!-- PANEL LIEN URL -->
+        <div id="panelUrl" class="hidden">
+          <div class="url-drop-zone">
+            <div style="font-size:42px;margin-bottom:12px">🔗</div>
+            <h2>Colle le lien de ta vidéo TikTok</h2>
+            <p>L'IA va analyser la vidéo directement depuis le lien</p>
+            <div class="url-input-row">
+              <input id="tiktokUrlInput" type="url" placeholder="https://www.tiktok.com/@compte/video/..." autocomplete="off" />
+              <button onclick="loadFromUrl()" class="primary-btn">Charger</button>
+            </div>
+          </div>
+          <div id="urlVideoPreview" class="hidden"></div>
+        </div>
 
         <div id="videoPreview" class="video-preview hidden">
           <div class="preview-icon">🎬</div>
@@ -239,10 +274,80 @@
         </div>
       </section>
 
+      <!-- PAGE MA CHAINE -->
+      <section id="page-mychannel" class="page">
+        <div class="module-head">
+          <h2>📺 Ma Chaîne TikTok</h2>
+          <button class="secondary-btn" onclick="addMyChannel()">+ Ajouter / Changer ma chaîne</button>
+        </div>
+        <div id="myChannelCard" class="channel-profile-card">
+          <div class="no-channel-msg">
+            <p>👆 Clique sur "Ajouter / Changer ma chaîne" pour configurer ton compte TikTok.</p>
+          </div>
+        </div>
+        <div class="module-head" style="margin-top:28px">
+          <h2>📊 Mes vidéos analysées</h2>
+        </div>
+        <div id="myChannelHistory" class="history-list"></div>
+      </section>
+
+      <!-- PAGE CONCURRENTS -->
+      <section id="page-competitors" class="page">
+        <div class="module-head">
+          <h2>🔍 Chaînes concurrentes</h2>
+        </div>
+        <div class="competitor-add-bar">
+          <input id="competitorInput" type="text" placeholder="@nomduconcurrent" autocomplete="off" />
+          <select id="competitorCategory">
+            <option value="Famille/Drama">Famille / Drama</option>
+            <option value="Lifestyle">Lifestyle</option>
+            <option value="Humour">Humour</option>
+            <option value="Couple">Couple</option>
+            <option value="Autre">Autre</option>
+          </select>
+          <button class="primary-btn" onclick="addCompetitor()">Ajouter</button>
+        </div>
+        <div id="competitorList" class="competitor-list"></div>
+      </section>
+
       <section id="page-ideas" class="page"><div class="empty-card"><h2>💡 Idées de contenu</h2><p>Banque d’idées pour vidéos famille, drama, humour et storytime.</p><div id="ideasList" class="pill-list"></div></div></section>
       <section id="page-checklist" class="page"><div class="empty-card"><h2>✅ Checklist TikTok</h2><ul><li>Hook fort dans les 2 premières secondes</li><li>Relance visuelle vers 8–12 secondes</li><li>Relance émotionnelle au milieu</li><li>Phrase de fin qui pousse au commentaire</li><li>Miniature lisible en moins d’une seconde</li></ul></div></section>
     </section>
   </main>
+
+  <!-- MODAL OVERLAY RAPPORT -->
+  <div id="reportModal" class="report-modal hidden">
+    <div class="report-modal-backdrop" onclick="closeReportModal()"></div>
+    <div class="report-modal-content">
+      <div class="report-modal-header">
+        <div>
+          <span id="modalVideoTitle" style="font-weight:800;font-size:16px">Rapport</span>
+          <div id="modalVideoMeta" style="font-size:12px;color:#888;margin-top:3px"></div>
+        </div>
+        <button onclick="closeReportModal()" class="secondary-btn">✕ Fermer</button>
+      </div>
+      <div id="reportModalBody" class="report-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT CHAINE -->
+  <div id="channelModal" class="report-modal hidden">
+    <div class="report-modal-backdrop" onclick="closeChannelModal()"></div>
+    <div class="report-modal-content" style="max-width:480px">
+      <div class="report-modal-header">
+        <strong>Ajouter une chaîne TikTok</strong>
+        <button onclick="closeChannelModal()" class="secondary-btn">✕</button>
+      </div>
+      <div style="padding:24px">
+        <label style="display:block;font-weight:700;margin-bottom:8px">Nom de la chaîne (@username)</label>
+        <div style="display:flex;gap:10px">
+          <input id="channelModalInput" type="text" placeholder="@vevoir" style="flex:1;border:1.5px solid #dde1f0;border-radius:12px;padding:11px 14px;font-family:inherit;font-size:14px;outline:none" autocomplete="off" />
+          <button class="primary-btn" onclick="confirmAddChannel()">Confirmer</button>
+        </div>
+        <div id="channelModalStatus" style="margin-top:12px;font-size:13px;color:#888"></div>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
