@@ -49,13 +49,8 @@ async function connectAPIs(){
   if(claude)localStorage.setItem('CLAUDE_KEY',claude);
   if(openai)localStorage.setItem('OPENAI_KEY',openai);
   if(gemini)localStorage.setItem('GEMINI_KEY',gemini);
-  setApiStatus('⏳ Clés enregistrées. Test en cours…','');
-  try{
-    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',claudeKey:claude,openaiKey:openai,geminiKey:gemini})});
-    const data=await res.json().catch(()=>({ok:false,error:'Réponse illisible'}));
-    if(data.ok){setApiStatus('✅ '+data.provider+' connecté.','ok');}
-    else{setApiStatus('⚠️ Clés enregistrées. '+(data.error||''),'ok');}
-  }catch(e){setApiStatus('✅ Clés enregistrées. Tu peux entrer.','ok');}
+  const activeProvider = gemini ? 'Gemini + OpenAI' : openai ? 'OpenAI' : 'configuré';
+  setApiStatus('✅ Clés enregistrées — ' + activeProvider + ' prêt.', 'ok');
   qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
 }
 function setApiStatus(msg,type){qs('apiStatus').textContent=msg; qs('apiStatus').className='status-box '+(type==='ok'?'status-ok':type==='error'?'status-error':'')}
@@ -119,26 +114,296 @@ async function extractFrames(file, count=4){
 }
 
 async function analyzeVideo(){
-  if(!selectedVideo){alert('Ajoute une vidéo avant.'); return;}
-  const k=getKeys();
+  if(!selectedVideo){ alert('Dépose une vidéo avant.'); return; }
+  const k = getKeys();
+  if(!k.gemini && !k.openai){ alert('Configure Gemini ou OpenAI dans les paramètres.'); return; }
+
   qs('results').classList.remove('hidden');
-  qs('results').innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Analyse en cours…</h2><p>Extraction des images clés, lecture du contexte et génération d’un rapport ultra détaillé.</p></div>';
-  qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours…'; qs('step3').classList.add('active');
-  const frames = await extractFrames(selectedVideo,4);
-  const payload={
-    action:'analyze', claudeKey:k.claude, openaiKey:k.openai, geminiKey:k.gemini,
-    videoName:selectedVideo.name, duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
+  qs('analyzeBtn').disabled = true;
+  qs('step3').classList.add('active');
+  qs('analysisStatus').textContent = 'Analyse en cours…';
+
+  const steps = [
+    {pct:10, msg:'🎬 Extraction des images de la vidéo…'},
+    {pct:30, msg:'👁️ Gemini examine ta vidéo image par image…'},
+    {pct:55, msg:'📊 Gemini calcule ses scores…'},
+    {pct:75, msg:'🧠 OpenAI valide et affine l\'analyse…'},
+    {pct:90, msg:'✍️ Génération du rapport complet…'},
+    {pct:100, msg:'✅ Analyse terminée !'}
+  ];
+  let stepIdx = 0;
+
+  function nextStep(){
+    if(stepIdx < steps.length){
+      showProgress(steps[stepIdx].msg, steps[stepIdx].pct);
+      stepIdx++;
+    }
+  }
+
+  nextStep(); // step 1 - extraction
+  const frames = await extractFrames(selectedVideo, 4);
+  const thumbData = frames.length > 0 ? (frames[0].image || '') : '';
+
+  const ctx = {
+    videoName: selectedVideo.name,
+    duration:    qs('durationSelect')  ? qs('durationSelect').value  : '90',
+    contentType: qs('contentType')     ? qs('contentType').value     : 'famille/drama',
+    hook:        qs('hookInput')       ? qs('hookInput').value       : '',
     frames
   };
-  let report=null;
-  try{
-    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data=await res.json(); if(data && data.report) report=data.report;
-  }catch(e){ console.warn(e); }
-  if(!report) report=localFallbackReport(payload);
-  lastAnalysis={id:Date.now(), date:new Date().toLocaleString('fr-FR'), video:selectedVideo.name, report};
-  saveHistory(lastAnalysis); renderReport(report); renderHistory(); qs('analysisStatus').textContent='Analyse terminée et sauvegardée dans l’historique.'; qs('analyzeBtn').disabled=false;
+
+  let report = null;
+
+  try {
+    if(k.gemini && k.openai){
+      // ══ MODE DOUBLE IA : Gemini voit + score → OpenAI valide + rapport ══
+      nextStep(); // step 2
+      const geminiVision = await withTimeout(
+        callGeminiVision(k.gemini, ctx), 90000, 'Gemini vision timeout'
+      );
+
+      nextStep(); // step 3
+      const geminiScores = await withTimeout(
+        callGeminiScores(k.gemini, ctx, geminiVision), 60000, 'Gemini scores timeout'
+      );
+
+      nextStep(); // step 4
+      const openaiReport = await withTimeout(
+        callOpenAIValidate(k.openai, ctx, geminiVision, geminiScores), 90000, 'OpenAI timeout'
+      );
+
+      nextStep(); // step 5
+      report = openaiReport;
+
+    } else if(k.gemini){
+      // ══ MODE GEMINI SEUL ══
+      nextStep();
+      const geminiVision = await withTimeout(
+        callGeminiVision(k.gemini, ctx), 90000, 'Gemini vision timeout'
+      );
+      nextStep(); nextStep();
+      report = await withTimeout(
+        callGeminiReport(k.gemini, ctx, geminiVision), 90000, 'Gemini report timeout'
+      );
+      nextStep();
+
+    } else if(k.openai){
+      // ══ MODE OPENAI SEUL ══
+      nextStep(); nextStep(); nextStep();
+      report = await withTimeout(
+        callOpenAIReport(k.openai, ctx, ''), 90000, 'OpenAI timeout'
+      );
+      nextStep();
+    }
+
+    nextStep(); // done
+
+  } catch(e) {
+    console.error('Analyse error:', e.message);
+    showProgress('❌ Erreur : ' + e.message + ' — Vérifie tes clés API et ta connexion.', 0);
+    qs('analyzeBtn').disabled = false;
+    qs('analysisStatus').textContent = 'Erreur analyse.';
+    return;
+  }
+
+  if(!report){ report = localFallbackReport(ctx); }
+
+  lastAnalysis = {
+    id: Date.now(),
+    date: new Date().toLocaleString('fr-FR'),
+    video: selectedVideo.name,
+    thumb: thumbData,
+    report
+  };
+  saveHistory(lastAnalysis);
+  renderReport(report);
+  renderHistory();
+  qs('analysisStatus').textContent = 'Analyse terminée et sauvegardée.';
+  qs('analyzeBtn').disabled = false;
 }
+
+// ─── TIMEOUT WRAPPER ─────────────────────────────────────────────────────────
+function withTimeout(promise, ms, label){
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(label + ' (' + (ms/1000) + 's)')), ms);
+    promise.then(v => { clearTimeout(t); resolve(v); })
+           .catch(e => { clearTimeout(t); reject(e); });
+  });
+}
+
+// ─── BARRE DE PROGRESSION ────────────────────────────────────────────────────
+function showProgress(msg, pct){
+  const el = qs('results');
+  if(!el) return;
+  const color = pct === 0 ? '#ef4444' : 'linear-gradient(90deg,var(--accent),#06b6d4)';
+  el.innerHTML = `
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <h2 style="font-size:16px;margin-bottom:6px">${msg}</h2>
+      <div style="width:100%;background:#eceefd;border-radius:99px;height:10px;margin:14px 0 8px;overflow:hidden">
+        <div style="width:${pct}%;background:${color};height:100%;border-radius:99px;transition:width .7s ease"></div>
+      </div>
+      <p style="color:#888;font-size:12px;margin:0">
+        ${pct < 100 && pct > 0
+          ? 'L\'analyse peut prendre jusqu\'à 90 secondes. Ne ferme pas la page.'
+          : pct === 100 ? 'Génération du rapport en cours…' : 'Vérifie tes clés API et ta connexion internet.'}
+      </p>
+    </div>`;
+}
+
+// ─── ÉTAPE 1 : GEMINI VOIT LA VIDÉO (vision multimodale) ─────────────────────
+async function callGeminiVision(geminiKey, ctx){
+  const parts = [{
+    text: `Tu es un expert TikTok. Analyse ces ${ctx.frames.length} images extraites d'une vidéo TikTok.\nNiche: ${ctx.contentType} | Durée: ~${ctx.duration}s | Hook actuel: "${ctx.hook||'non précisé'}"\n\nDécris PRÉCISÉMENT:\n1. Ce qui se passe visuellement à chaque image (personnes, expressions, actions)\n2. Les sous-titres visibles (taille, couleur, lisibilité, timing)\n3. Le rythme ressenti (dynamique, lent, coupures)\n4. La qualité image (luminosité, cadrage, flou)\n5. L'impact émotionnel (drama, humour, tension)\n6. Ce qui accroche et ce qui fait décrocher\n\nSois précis et factuel. Cite ce que tu VOIS vraiment.`
+  }];
+
+  for(const frame of ctx.frames){
+    if(frame.image){
+      const b64 = frame.image.replace(/^data:image\/\w+;base64,/, '');
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
+    }
+  }
+
+  const r = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
+    { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2} }) }
+  );
+
+  if(!r.ok){
+    const err = await r.json().catch(()=>({}));
+    throw new Error('Gemini vision: ' + (err.error?.message || r.status));
+  }
+  const data = await r.json();
+  if(data.error) throw new Error('Gemini vision: ' + data.error.message);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// ─── ÉTAPE 2 : GEMINI DONNE SES SCORES ───────────────────────────────────────
+async function callGeminiScores(geminiKey, ctx, visionAnalysis){
+  const prompt = `Tu es expert TikTok. Basé sur cette analyse visuelle d'une vidéo:\n\n${visionAnalysis}\n\nDonne tes scores PRÉCIS et VARIÉS (pas tous identiques). Réponds UNIQUEMENT en JSON:\n{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>,"score_global":<35-96>,"points_forts":["<point 1>","<point 2>"],"points_faibles":["<problème 1>","<problème 2>","<problème 3>"],"verdict_gemini":"<en 2 phrases: ce qui fonctionne et ce qui doit changer>"}`;
+
+  const r = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
+    { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{temperature:0.1, responseMimeType:'application/json'}
+      }) }
+  );
+
+  if(!r.ok){
+    const err = await r.json().catch(()=>({}));
+    throw new Error('Gemini scores: ' + (err.error?.message || r.status));
+  }
+  const data = await r.json();
+  if(data.error) throw new Error('Gemini scores: ' + data.error.message);
+  const txt = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  try { return JSON.parse(txt.replace(/```json|```/g,'')); }
+  catch(e) { return {}; }
+}
+
+// ─── ÉTAPE 3 : OPENAI VALIDE + GÉNÈRE LE RAPPORT COMPLET ─────────────────────
+async function callOpenAIValidate(openaiKey, ctx, visionAnalysis, geminiScores){
+  const scoresText = JSON.stringify(geminiScores, null, 2);
+
+  const prompt = [
+    'Tu es le meilleur expert TikTok senior au monde. Tu travailles avec Gemini qui vient d\'analyser une vidéo.',
+    '',
+    '== CE QUE GEMINI A VU (analyse visuelle) ==',
+    visionAnalysis,
+    '',
+    '== SCORES DE GEMINI ==',
+    scoresText,
+    '',
+    '== TA MISSION ==',
+    'Vidéo: ' + ctx.videoName + ' | Type: ' + ctx.contentType + ' | Hook: "' + (ctx.hook||'non précisé') + '" | Durée: ~' + ctx.duration + 's',
+    '',
+    '1. VALIDE ou CORRIGE les scores de Gemini (si tu n\'es pas d\'accord, change le score et explique pourquoi)',
+    '2. COMPLÈTE l\'analyse avec ton expertise TikTok (timestamps précis, phrases prêtes à dire)',
+    '3. Génère un rapport PÉDAGOGIQUE COMPLET pour un débutant total',
+    '4. Rappelle que les vidéos >1min sont payées DOUBLE par TikTok',
+    '',
+    'RÈGLES: Scores variés 3-10 jamais identiques. Phrases EXACTES prêtes à copier. Timestamps précis.',
+    '',
+    'Réponds UNIQUEMENT en JSON valide:',
+    '{"score":<score_final_apres_validation>,"potential":"<phrase>","summaryTitle":"<titre>","summaryText":"<3-5 phrases pedagogiques>","validation_gemini":"<tu es accord ou pas avec Gemini et pourquoi>","scores":{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>},"hookScores":{"start":<3-10>,"middle":<3-10>,"end":<3-10>,"retention":<3-10>},"cards":{"hook":"<timestamp + phrase alternative exacte>","rhythm":"<secondes exactes + correction>","clarity":"<comprehensible ? correction>","cta":"<phrase exacte CTA>"},"deep":{"global":"<analyse globale>","hookStart":"<0-3s exact>","hookMiddle":"<milieu exact>","hookEnd":"<fin exacte>","subtitles":"<corrections sous-titres>","sound":"<corrections audio>"},"timeline":[["0-1 sec","<conseil>"],["1-3 sec","<conseil>"],["3-8 sec","<conseil>"],["8-15 sec","<conseil critique>"],["15-25 sec","<conseil>"],["25-45 sec","<conseil>"],["45sec-1min","<conseil monetisation>"],["1min-fin","<conseil premium>"],["Dernieres sec","<CTA mot pour mot>"]],"hooks":["<hook 1>","<hook 2>","<hook 3>","<hook 4>","<hook 5>"],"titres":["<titre 1>","<titre 2>","<titre 3>","<titre 4>","<titre 5>"],"hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"pubHeure":"<ex Vendredi 19h30>","pubRaison":"<pourquoi>","miniature":{"texte":"<TEXTE GROS>","couleurs":"<palette>","scene":"<scene exacte>"},"actions":["<action 1>","<action 2>","<action 3>","<action 4>","<action 5>"],"rewrite":["<rewrite hook>","<rewrite milieu>","<rewrite fin>","<rewrite titre>"],"checklist":["<point 1>","<point 2>","<point 3>","<point 4>","<point 5>"],"errorsToAvoid":["<erreur 1>","<erreur 2>","<erreur 3>"],"beginner":{"do":["<do 1>","<do 2>","<do 3>","<do 4>","<do 5>"],"dont":["<dont 1>","<dont 2>","<dont 3>","<dont 4>","<dont 5>"]},"score_details":{"revisionnage":<0-10>,"completion":<0-8>,"partages":<0-6>,"commentaires":<0-4>,"likes":<0-2>}}'
+  ].join('\n');
+
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+openaiKey},
+    body: JSON.stringify({
+      model:'gpt-4o-mini',
+      temperature:0.3,
+      response_format:{type:'json_object'},
+      messages:[
+        {role:'system', content:'Expert TikTok senior. Tu travailles avec Gemini. JSON valide uniquement. Scores vraiment varies.'},
+        {role:'user', content:prompt}
+      ]
+    })
+  });
+
+  if(!r.ok){
+    const err = await r.json().catch(()=>({}));
+    throw new Error('OpenAI: ' + (err.error?.message || r.status));
+  }
+  const data = await r.json();
+  if(data.error) throw new Error('OpenAI: ' + data.error.message);
+  const txt = data.choices?.[0]?.message?.content;
+  if(!txt) throw new Error('OpenAI: réponse vide');
+  return normalizeReport(JSON.parse(txt), localFallbackReport(ctx));
+}
+
+// ─── FALLBACKS (si une seule IA) ─────────────────────────────────────────────
+async function callOpenAIReport(openaiKey, ctx, visionAnalysis){
+  return callOpenAIValidate(openaiKey, ctx, visionAnalysis, {});
+}
+
+async function callGeminiReport(geminiKey, ctx, visionAnalysis){
+  const prompt = buildGeminiFullPrompt(ctx, visionAnalysis);
+  const r = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
+    { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{temperature:0.3, responseMimeType:'application/json'}
+      }) }
+  );
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error('Gemini rapport: '+(e.error?.message||r.status)); }
+  const data = await r.json();
+  if(data.error) throw new Error('Gemini rapport: '+data.error.message);
+  const txt = data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+  return normalizeReport(JSON.parse(txt.replace(/```json|```/g,'')), localFallbackReport(ctx));
+}
+
+function buildGeminiFullPrompt(ctx, visionAnalysis){
+  return 'Expert TikTok senior. Video: '+ctx.videoName+' | '+ctx.contentType+' | hook: "'+ctx.hook+'" | ~'+ctx.duration+'s\n'+(visionAnalysis?'Vision: '+visionAnalysis+'\n':'')+'Genere rapport complet JSON: {"score":<35-96>,"potential":"<phrase>","summaryTitle":"<titre>","summaryText":"<3-5 phrases>","scores":{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>},"hookScores":{"start":<3-10>,"middle":<3-10>,"end":<3-10>,"retention":<3-10>},"cards":{"hook":"<analyse>","rhythm":"<analyse>","clarity":"<analyse>","cta":"<analyse>"},"deep":{"global":"<analyse>","hookStart":"<analyse>","hookMiddle":"<analyse>","hookEnd":"<analyse>","subtitles":"<analyse>","sound":"<analyse>"},"timeline":[["0-1 sec","<conseil>"],["1-3 sec","<conseil>"],["3-8 sec","<conseil>"],["8-15 sec","<conseil>"],["15-25 sec","<conseil>"],["25-45 sec","<conseil>"],["45sec-1min","<conseil>"],["1min-fin","<conseil>"],["Dernieres sec","<CTA>"]],"hooks":["<h1>","<h2>","<h3>","<h4>","<h5>"],"titres":["<t1>","<t2>","<t3>","<t4>","<t5>"],"hashtags":["#t1","#t2","#t3","#t4","#t5","#t6","#t7","#t8"],"pubHeure":"<heure>","pubRaison":"<raison>","miniature":{"texte":"<texte>","couleurs":"<couleurs>","scene":"<scene>"},"actions":["<a1>","<a2>","<a3>","<a4>","<a5>"],"rewrite":["<r1>","<r2>","<r3>","<r4>"],"checklist":["<c1>","<c2>","<c3>","<c4>","<c5>"],"errorsToAvoid":["<e1>","<e2>","<e3>"],"beginner":{"do":["<d1>","<d2>","<d3>","<d4>","<d5>"],"dont":["<n1>","<n2>","<n3>","<n4>","<n5>"]},"score_details":{"revisionnage":<0-10>,"completion":<0-8>,"partages":<0-6>,"commentaires":<0-4>,"likes":<0-2>}}';
+}
+
+function normalizeReport(r, base){
+  if(!r||typeof r!=='object') return base;
+  return {
+    ...base,...r,
+    scores:{...base.scores,...(r.scores||{})},
+    hookScores:{...base.hookScores,...(r.hookScores||{})},
+    cards:{...base.cards,...(r.cards||{})},
+    deep:{...base.deep,...(r.deep||{})},
+    beginner:{...base.beginner,...(r.beginner||{})},
+    miniature:{...base.miniature,...(r.miniature||{})},
+    score_details:{...base.score_details,...(r.score_details||{})},
+    timeline:r.timeline?.length?r.timeline:base.timeline,
+    hooks:r.hooks?.length?r.hooks:base.hooks,
+    titres:r.titres?.length?r.titres:base.titres,
+    hashtags:r.hashtags?.length?r.hashtags:base.hashtags,
+    actions:r.actions?.length?r.actions:base.actions,
+    rewrite:r.rewrite?.length?r.rewrite:base.rewrite,
+    checklist:r.checklist?.length?r.checklist:base.checklist,
+    errorsToAvoid:r.errorsToAvoid?.length?r.errorsToAvoid:base.errorsToAvoid,
+  };
+}
+
+
 function ensureReport(r){
   const base = localFallbackReport({});
   r = r || {};
@@ -159,7 +424,7 @@ function ensureReport(r){
 function localFallbackReport(p){
   const hook=p?.hook || 'Ça a dégénéré direct…';
   return {
-    score:78,
+    score:65,
     potential:'Bon potentiel — il faut renforcer les hooks et les explications',
     summaryTitle:'Vidéo exploitable avec une structure TikTok plus claire',
     summaryText:'La vidéo peut fonctionner si elle prend le spectateur par la main. Pour TikTok, il faut expliquer très vite pourquoi il faut rester, puis relancer l’attention régulièrement. Un débutant doit retenir ceci : début fort, contexte simple, relances fréquentes, fin avec question.',
@@ -496,13 +761,12 @@ async function analyzeFromUrl() {
 
   let report = null;
   try {
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data && data.report) report = data.report;
+    const k2 = getKeys();
+    if(k2.openai){
+      report = await callOpenAIReport(k2.openai, payload, '');
+    } else if(k2.gemini){
+      report = await callGeminiReport(k2.gemini, payload, '');
+    }
   } catch (e) { console.warn(e); }
   if (!report) report = localFallbackReport(payload);
 
