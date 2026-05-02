@@ -13,18 +13,24 @@
     <div class="login-card">
       <div class="login-badge">TikTok Analyzer Pro</div>
       <h1>Connexion à l’analyseur</h1>
-      <p>Colle tes clés une fois, enregistre, puis entre dans le dashboard complet.</p>
+      <p>Entre ta clé Claude (recommandée) ou OpenAI pour activer l'analyse IA complète.</p>
 
       <div class="api-card">
         <div class="api-card-head">
           <div>
             <span class="api-chip">🔐 Connexion API</span>
-            <h2>OpenAI + Gemini</h2>
+            <h2>Claude · OpenAI · Gemini</h2>
           </div>
           <span class="api-live" id="apiLive">En attente</span>
         </div>
 
-        <label for="openaiKey">Clé OpenAI</label>
+        <label for="claudeKey">Clé Claude (Anthropic) — Recommandée ⭐</label>
+        <div class="input-row">
+          <input id="claudeKey" type="password" placeholder="sk-ant-api03-..." autocomplete="off" />
+          <button type="button" onclick="togglePassword('claudeKey')">Voir</button>
+        </div>
+
+        <label for="openaiKey">Clé OpenAI (optionnel)</label>
         <div class="input-row">
           <input id="openaiKey" type="password" placeholder="sk-..." autocomplete="off" />
           <button type="button" onclick="togglePassword('openaiKey')">Voir</button>
@@ -70,6 +76,7 @@
 
       <div class="side-api">
         <div class="side-api-title">🔐 API connectées</div>
+        <div class="api-line"><span id="claudeDot" class="dot"></span> Claude <strong id="claudeLabel">Non</strong></div>
         <div class="api-line"><span id="openaiDot" class="dot"></span> OpenAI <strong id="openaiLabel">Non</strong></div>
         <div class="api-line"><span id="geminiDot" class="dot"></span> Gemini <strong id="geminiLabel">Non</strong></div>
         <button class="mini-btn" onclick="backToLogin()">Modifier les clés</button>
