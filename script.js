@@ -23,26 +23,26 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function qs(id){return document.getElementById(id)}
-function getKeys(){return {openai:localStorage.getItem('OPENAI_KEY')||'', gemini:localStorage.getItem('GEMINI_KEY')||''}}
+function getKeys(){return {claude:localStorage.getItem('CLAUDE_KEY')||'', openai:localStorage.getItem('OPENAI_KEY')||'', gemini:localStorage.getItem('GEMINI_KEY')||''}}
 function togglePassword(id){const el=qs(id); el.type = el.type === 'password' ? 'text' : 'password'}
-function loadKeys(){const k=getKeys(); if(qs('openaiKey')) qs('openaiKey').value=k.openai; if(qs('geminiKey')) qs('geminiKey').value=k.gemini; const ok=!!(k.openai||k.gemini); if(ok){qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); qs('apiStatus').textContent='✅ Clés déjà enregistrées sur ce navigateur'; qs('apiStatus').className='status-box status-ok';}}
+function loadKeys(){const k=getKeys(); if(qs('claudeKey')) qs('claudeKey').value=k.claude; if(qs('openaiKey')) qs('openaiKey').value=k.openai; if(qs('geminiKey')) qs('geminiKey').value=k.gemini; const ok=!!(k.claude||k.openai||k.gemini); if(ok){qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); qs('apiStatus').textContent='✅ Clés déjà enregistrées sur ce navigateur'; qs('apiStatus').className='status-box status-ok';}}
 async function connectAPIs(){
-  const openai=qs('openaiKey').value.trim(); const gemini=qs('geminiKey').value.trim();
-  if(!openai && !gemini){setApiStatus('❌ Ajoute au moins une clé API.','error'); return;}
-  localStorage.setItem('OPENAI_KEY',openai); localStorage.setItem('GEMINI_KEY',gemini);
-  setApiStatus('⏳ Clés enregistrées. Test de connexion en cours…','');
+  const claude=qs('claudeKey')?qs('claudeKey').value.trim():''; const openai=qs('openaiKey').value.trim(); const gemini=qs('geminiKey').value.trim();
+  if(!claude&&!openai&&!gemini){setApiStatus('❌ Ajoute au moins une clé API.','error'); return;}
+  if(claude)localStorage.setItem('CLAUDE_KEY',claude);
+  if(openai)localStorage.setItem('OPENAI_KEY',openai);
+  if(gemini)localStorage.setItem('GEMINI_KEY',gemini);
+  setApiStatus('⏳ Clés enregistrées. Test en cours…','');
   try{
-    const res = await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',openaiKey:openai,geminiKey:gemini})});
-    const data = await res.json().catch(()=>({ok:false,error:'Réponse API illisible'}));
-    if(data.ok){setApiStatus('✅ Test OK — connexion enregistrée.','ok');}
-    else {setApiStatus('⚠️ Clés enregistrées. Test non bloquant : '+(data.error||'Vérifie les quotas plus tard.'),'ok');}
-  }catch(e){
-    setApiStatus('✅ Clés enregistrées. Le test distant n’a pas répondu, mais tu peux entrer dans l’application.','ok');
-  }
+    const res=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',claudeKey:claude,openaiKey:openai,geminiKey:gemini})});
+    const data=await res.json().catch(()=>({ok:false,error:'Réponse illisible'}));
+    if(data.ok){setApiStatus('✅ '+data.provider+' connecté.','ok');}
+    else{setApiStatus('⚠️ Clés enregistrées. '+(data.error||''),'ok');}
+  }catch(e){setApiStatus('✅ Clés enregistrées. Tu peux entrer.','ok');}
   qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
 }
 function setApiStatus(msg,type){qs('apiStatus').textContent=msg; qs('apiStatus').className='status-box '+(type==='ok'?'status-ok':type==='error'?'status-error':'')}
-function updateApiLabels(){const k=getKeys(); qs('openaiLabel').textContent=k.openai?'Oui':'Non'; qs('geminiLabel').textContent=k.gemini?'Oui':'Non'; qs('openaiDot').classList.toggle('ok',!!k.openai); qs('geminiDot').classList.toggle('ok',!!k.gemini)}
+function updateApiLabels(){const k=getKeys(); if(qs('claudeLabel'))qs('claudeLabel').textContent=k.claude?'Oui':'Non'; qs('openaiLabel').textContent=k.openai?'Oui':'Non'; qs('geminiLabel').textContent=k.gemini?'Oui':'Non'; if(qs('claudeDot'))qs('claudeDot').classList.toggle('ok',!!k.claude); qs('openaiDot').classList.toggle('ok',!!k.openai); qs('geminiDot').classList.toggle('ok',!!k.gemini)}
 function enterApp(){qs('loginScreen').classList.add('hidden'); qs('app').classList.remove('hidden'); updateApiLabels(); renderThumbnail();}
 function backToLogin(){qs('app').classList.add('hidden'); qs('loginScreen').classList.remove('hidden');}
 
@@ -87,7 +87,7 @@ async function analyzeVideo(){
   qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Analyse en cours…'; qs('step3').classList.add('active');
   const frames = await extractFrames(selectedVideo,4);
   const payload={
-    action:'analyze', openaiKey:k.openai, geminiKey:k.gemini,
+    action:'analyze', claudeKey:k.claude, openaiKey:k.openai, geminiKey:k.gemini,
     videoName:selectedVideo.name, duration:qs('durationSelect').value, contentType:qs('contentType').value, hook:qs('hookInput').value,
     frames
   };
@@ -158,7 +158,8 @@ function localFallbackReport(p){
     beginner:{do:['Commence par le moment le plus fort.','Explique comme si la personne ne connaissait rien.','Relance souvent avec une phrase courte.','Mets des sous-titres très gros.','Finis par une question simple.'],dont:['Ne commence pas lentement.','Ne surcharge pas l’écran.','Ne laisse pas de blanc inutile.','Ne fais pas une miniature trop chargée.','Ne termine pas sans CTA.']}
   };
 }
-function renderReport(input){
+function renderReport(input){ renderReportInto(qs('results'), input); }
+function renderReportInto(target, input){
   const r = ensureReport(input);
   const hookScores = r.hookScores || {
     start: Math.max(5, Math.min(10, r.scores.hook)),
@@ -171,7 +172,7 @@ function renderReport(input){
     ['À améliorer ensuite','Le rythme et les coupures'],
     ['À finaliser','La fin + la question commentaire']
   ];
-  qs('results').innerHTML=`
+  target.innerHTML=`
   <div class="report-shell">
     <div class="report-header-clean">
       <div>
@@ -251,6 +252,25 @@ function renderReport(input){
         <div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div>
       </div>
     </section>
+    <section class="report-section">
+      <div class="section-title"><span>8</span><div><h3>Titres TikTok — Viralité maximale</h3><p>Clique pour copier directement.</p></div></div>
+      <div class="pill-list ordered-pills">${(r.titres||[]).map((t,i)=>`<div class="pill pill-titre" onclick="navigator.clipboard.writeText('${t.replace(/'/g,'')}').then(()=>this.textContent='✅ Copié!')" style="cursor:pointer"><b>${i+1}</b>${t}</div>`).join('')}</div>
+    </section>
+    <section class="report-section">
+      <div class="section-title"><span>9</span><div><h3>Hashtags & Meilleur moment</h3><p>Prêts à copier-coller.</p></div></div>
+      <div class="two-col clean-two-col">
+        <div class="wide-card">
+          <h3># Hashtags recommandés</h3>
+          <div class="pill-list">${(r.hashtags||[]).map(h=>`<div class="pill pill-tag" onclick="navigator.clipboard.writeText('${h}')">${h}</div>`).join('')}</div>
+          <button class="secondary-btn" style="margin-top:10px;width:100%" onclick="navigator.clipboard.writeText('${(r.hashtags||[]).join(' ')}').then(()=>this.textContent='✅ Copié!')">📋 Copier tous les hashtags</button>
+        </div>
+        <div class="wide-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac">
+          <h3>📅 Meilleur moment pour publier</h3>
+          <div style="font-size:30px;font-weight:800;color:#16a34a;margin:10px 0">${r.pubHeure||'19h30'}</div>
+          <p style="font-size:13px;color:#166534">${r.pubRaison||'Créneau optimal pour ta niche famille/drama'}</p>
+        </div>
+      </div>
+    </section>
   </div>`;
 }
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
@@ -258,8 +278,43 @@ function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summary
 function copyReport(){navigator.clipboard.writeText(reportToText()).then(()=>alert('Rapport copié'))}
 function saveHistory(item){const h=JSON.parse(localStorage.getItem('TA_HISTORY')||'[]'); h.unshift(item); localStorage.setItem('TA_HISTORY',JSON.stringify(h.slice(0,30))); lastAnalysis=item;}
 function getHistory(){return JSON.parse(localStorage.getItem('TA_HISTORY')||'[]')}
-function renderHistory(){const h=getHistory(); if(qs('historyCount')) qs('historyCount').textContent=h.length; const el=qs('historyList'); if(!el)return; el.innerHTML=h.length?h.map(item=>`<div class="history-item" onclick="openHistory(${item.id})"><h3>${item.video}</h3><p>${item.date} · Score ${item.report.score}/100 · ${item.report.summaryTitle}</p></div>`).join(''):'<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'}
-function openHistory(id){const item=getHistory().find(x=>x.id===id); if(!item)return; lastAnalysis=item; switchPage('analyze',document.querySelector('[data-page="analyze"]')); qs('results').classList.remove('hidden'); renderReport(item.report);}
+function renderHistory(){
+  const h=getHistory(); if(qs('historyCount')) qs('historyCount').textContent=h.length;
+  const el=qs('historyList'); if(!el)return;
+  if(!h.length){el.innerHTML='<div class="empty-card"><h2>Aucune analyse</h2><p>Après une analyse vidéo, elle apparaîtra automatiquement ici.</p></div>'; return;}
+  el.innerHTML=h.map(item=>{
+    const sc=item.report.score||0;
+    const col=sc>=80?'#00c48c':sc>=65?'#6c47ff':sc>=50?'#ff8c00':'#ff3d5a';
+    const pt=item.report.potential||'—';
+    return `<div class="history-item" onclick="openHistoryModal(${item.id})">
+      <div class="hist-thumb">🎬</div>
+      <div class="hist-info">
+        <h3>${item.video}</h3>
+        <p>${item.date}</p>
+        <small>${pt}</small>
+      </div>
+      <div class="hist-score" style="color:${col}">${sc}<span>/100</span></div>
+    </div>`;
+  }).join('');
+}
+function openHistoryModal(id){
+  const item=getHistory().find(x=>x.id===id); if(!item)return; lastAnalysis=item;
+  let modal=qs('histModal');
+  if(!modal){
+    modal=document.createElement('div'); modal.id='histModal';
+    modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,10,20,.85);backdrop-filter:blur(8px);overflow-y:auto;padding:24px 16px;';
+    modal.innerHTML='<div id="histModalInner" style="max-width:860px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #eee"><strong style="font-size:15px">📋 Rapport — '+item.video+'</strong><button onclick="closeHistModal()" style="background:none;border:1px solid #ddd;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px">✕ Fermer</button></div><div id="histModalReport" style="padding:22px"></div></div>';
+    document.body.appendChild(modal);
+  } else {
+    modal.style.display='block';
+    modal.querySelector('strong').textContent='📋 Rapport — '+item.video;
+  }
+  qs('histModalReport').innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Chargement…</h2></div>';
+  setTimeout(()=>{ qs('histModalReport').innerHTML=''; renderReportInto(qs('histModalReport'), item.report); }, 80);
+  document.body.style.overflow='hidden';
+}
+function closeHistModal(){const m=qs('histModal'); if(m)m.style.display='none'; document.body.style.overflow='';}
+function openHistory(id){openHistoryModal(id);}
 function clearHistory(){localStorage.removeItem('TA_HISTORY'); renderHistory();}
 function fillPlannerFromLast(){const r=lastAnalysis?.report || getHistory()[0]?.report; if(!r){alert('Fais une analyse avant.');return;} qs('plannerTitle').value=r.hooks[0]||r.summaryTitle; qs('plannerHook').value=r.hooks[1]||''}
 function savePlan(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); plans.unshift({id:Date.now(),title:qs('plannerTitle').value||'Nouvelle vidéo',season:qs('plannerSeason').value,episode:qs('plannerEpisode').value,date:qs('plannerDate').value,time:qs('plannerTime').value,hook:qs('plannerHook').value}); localStorage.setItem('TA_PLANS',JSON.stringify(plans)); renderPlans();}
