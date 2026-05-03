@@ -157,54 +157,44 @@ async function analyzeVideo(){
   let report = null;
 
   try {
-    if(k.gemini && k.openai){
-      // ══ MODE DOUBLE IA : Gemini voit + score → OpenAI valide + rapport ══
+    if(k.openai){
+      // OpenAI voit les images ET genere le rapport (gpt-4o-mini supporte la vision)
       nextStep(); // step 2
-      const geminiVision = await withTimeout(
-        callGeminiVision(k.gemini, ctx), 90000, 'Gemini vision timeout'
+      showProgress('👁️ OpenAI analyse ta video image par image...', 35);
+      const visionTxt = await withTimeout(
+        callOpenAIVision(k.openai, ctx), 90000, 'OpenAI vision timeout'
       );
-
       nextStep(); // step 3
-      const geminiScores = await withTimeout(
-        callGeminiScores(k.gemini, ctx, geminiVision), 60000, 'Gemini scores timeout'
-      );
-
+      showProgress('📊 Calcul des scores et du rapport...', 65);
       nextStep(); // step 4
-      const openaiReport = await withTimeout(
-        callOpenAIValidate(k.openai, ctx, geminiVision, geminiScores), 90000, 'OpenAI timeout'
+      report = await withTimeout(
+        callOpenAIReport(k.openai, ctx, visionTxt), 90000, 'OpenAI rapport timeout'
       );
-
       nextStep(); // step 5
-      report = openaiReport;
 
     } else if(k.gemini){
-      // ══ MODE GEMINI SEUL ══
+      // Gemini seul - fallback
       nextStep();
-      const geminiVision = await withTimeout(
-        callGeminiVision(k.gemini, ctx), 90000, 'Gemini vision timeout'
-      );
+      let visionTxt = '';
+      try {
+        visionTxt = await withTimeout(callGeminiVision(k.gemini, ctx), 90000, 'Gemini timeout');
+      } catch(ev){ console.warn('Gemini vision:', ev.message); }
       nextStep(); nextStep();
       report = await withTimeout(
-        callGeminiReport(k.gemini, ctx, geminiVision), 90000, 'Gemini report timeout'
+        callGeminiReport(k.gemini, ctx, visionTxt), 90000, 'Gemini rapport timeout'
       );
       nextStep();
 
-    } else if(k.openai){
-      // ══ MODE OPENAI SEUL ══
-      nextStep(); nextStep(); nextStep();
-      report = await withTimeout(
-        callOpenAIReport(k.openai, ctx, ''), 90000, 'OpenAI timeout'
-      );
-      nextStep();
+    } else {
+      throw new Error('Configure ta cle OpenAI dans les parametres.');
     }
-
     nextStep(); // done
 
   } catch(e) {
     console.error('Analyse error:', e.message);
-    showProgress('❌ Erreur : ' + e.message + ' -- Vérifie tes clés API et ta connexion.', 0);
+    showProgress('Erreur : ' + e.message, 0);
     qs('analyzeBtn').disabled = false;
-    qs('analysisStatus').textContent = 'Erreur analyse.';
+    qs('analysisStatus').textContent = 'Erreur - verifie ta cle API.';
     return;
   }
 
@@ -380,6 +370,46 @@ async function callOpenAIValidate(openaiKey, ctx, visionAnalysis, geminiScores){
 }
 
 // ─── FALLBACKS (si une seule IA) ─────────────────────────────────────────────
+async function callOpenAIVision(openaiKey, ctx){
+  // gpt-4o-mini supporte la vision - envoie les frames directement
+  const imageContent = ctx.frames
+    .filter(f => f.image)
+    .map(f => ({
+      type: 'image_url',
+      image_url: { url: f.image, detail: 'low' }
+    }));
+
+  if(!imageContent.length){
+    // Pas d images - analyse contextuelle uniquement
+    return 'Pas d images disponibles - analyse basee sur le contexte uniquement.';
+  }
+
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+openaiKey},
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 800,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Tu es expert TikTok. Analyse ces ' + imageContent.length + ' images d une video TikTok (niche: ' + ctx.contentType + ', duree: ~' + ctx.duration + 's, hook: "' + (ctx.hook||'non precise') + '"). Decris: ce qui se passe visuellement, les expressions des personnes, les sous-titres visibles, le rythme, la qualite image, les moments forts et faibles. Sois precis et factuel.' },
+          ...imageContent
+        ]
+      }]
+    })
+  });
+
+  if(!r.ok){
+    const err = await r.json().catch(()=>({}));
+    // If vision not supported, return empty (will still generate report with context)
+    if(err.error?.code === 'invalid_request_error') return '';
+    throw new Error('OpenAI vision: ' + (err.error?.message || r.status));
+  }
+  const data = await r.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
 async function callOpenAIReport(openaiKey, ctx, visionAnalysis){
   return callOpenAIValidate(openaiKey, ctx, visionAnalysis, {});
 }
