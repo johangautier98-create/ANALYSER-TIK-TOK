@@ -1,95 +1,81 @@
-// api/tiktok.js — Récupère infos chaîne TikTok et vidéo via URL
+// api/tiktok.js — Infos chaîne TikTok via oEmbed + scraping mobile
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Methode non autorisee' });
+  if (req.method !== 'POST') return res.status(405).json({ ok: false });
 
   const { action, url, username } = req.body || {};
 
   try {
-    // 1. Infos sur une VIDEO TikTok via son URL
     if (action === 'video_info') {
       if (!url) return res.status(400).json({ ok: false, error: 'URL manquante' });
-      const oembedUrl = 'https://www.tiktok.com/oembed?url=' + encodeURIComponent(url);
-      const r = await fetch(oembedUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TikTokAnalyzer/1.0)' }
+      const r = await fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(url), {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
       });
-      if (!r.ok) return res.status(200).json({ ok: false, error: 'Video introuvable ou privee' });
-      const data = await r.json();
-      return res.status(200).json({
-        ok: true,
-        video: {
-          title:      data.title || 'Sans titre',
-          author:     data.author_name || 'Inconnu',
-          author_url: data.author_url || '',
-          thumbnail:  data.thumbnail_url || '',
-          url:        url
-        }
-      });
+      if (!r.ok) return res.status(200).json({ ok: false, error: 'Video introuvable (' + r.status + ')' });
+      const d = await r.json();
+      if (d.error) return res.status(200).json({ ok: false, error: d.error });
+      return res.status(200).json({ ok: true, video: {
+        title: d.title || 'Video TikTok',
+        author: d.author_name || 'Inconnu',
+        authorUrl: d.author_url || '',
+        thumbnail: d.thumbnail_url || '',
+        url
+      }});
     }
 
-    // 2. Infos sur une CHAINE TikTok via @username
     if (action === 'channel_info') {
-      const handle = (username || '').replace('@', '').trim();
-      if (!handle) return res.status(400).json({ ok: false, error: 'Nom de chaine manquant' });
+      const handle = (username || '').replace('@', '').trim().toLowerCase();
+      if (!handle) return res.status(400).json({ ok: false, error: 'Nom manquant' });
       const profileUrl = 'https://www.tiktok.com/@' + handle;
+      let avatar = '', displayName = '@' + handle, bio = '';
 
-      let avatar = '', displayName = handle;
-      let followers = null, likes = null, videos = null;
-
-      // oEmbed pour le nom et l'avatar
+      // oEmbed
       try {
         const r = await fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(profileUrl), {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TikTokAnalyzer/1.0)' }
+          headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
         });
         if (r.ok) {
           const d = await r.json();
-          displayName = d.author_name || handle;
-          avatar      = d.thumbnail_url || '';
+          if (d.author_name) displayName = d.author_name;
+          if (d.thumbnail_url) avatar = d.thumbnail_url;
         }
-      } catch (e) {}
+      } catch(e) {}
 
-      // Scraping leger des stats
-      try {
-        const pageR = await fetch(profileUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'fr-FR,fr;q=0.9'
+      // Scraping mobile
+      if (!avatar) {
+        try {
+          const r = await fetch(profileUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+              'Accept': 'text/html', 'Accept-Language': 'fr-FR'
+            }
+          });
+          if (r.ok) {
+            const html = await r.text();
+            const av = html.match(/"avatarLarger":"([^"]+)"/);
+            if (av) avatar = av[1].replace(/\\u002F/g, '/');
+            const nn = html.match(/"nickname":"([^"]+)"/);
+            if (nn) displayName = nn[1];
+            const sg = html.match(/"signature":"([^"]+)"/);
+            if (sg) bio = sg[1].replace(/\\n/g, ' ');
+            if (!avatar) {
+              const og = html.match(/<meta property="og:image" content="([^"]+)"/);
+              if (og) avatar = og[1];
+            }
           }
-        });
-        if (pageR.ok) {
-          const html = await pageR.text();
-          const follMatch = html.match(/"followerCount":(\d+)/);
-          const likeMatch = html.match(/"heartCount":(\d+)/);
-          const vidMatch  = html.match(/"videoCount":(\d+)/);
-          if (follMatch) followers = parseInt(follMatch[1]);
-          if (likeMatch) likes = parseInt(likeMatch[1]);
-          if (vidMatch)  videos = parseInt(vidMatch[1]);
-          if (!avatar) {
-            const m = html.match(/<meta property="og:image" content="([^"]+)"/);
-            if (m) avatar = m[1];
-          }
-        }
-      } catch (e) {}
+        } catch(e) {}
+      }
 
-      return res.status(200).json({
-        ok: true,
-        channel: {
-          handle:      '@' + handle,
-          displayName: displayName,
-          avatar:      avatar,
-          url:         profileUrl,
-          followers:   followers,
-          likes:       likes,
-          videos:      videos
-        }
-      });
+      return res.status(200).json({ ok: true, channel: {
+        handle: '@' + handle, displayName, avatar, bio, url: profileUrl
+      }});
     }
 
     return res.status(400).json({ ok: false, error: 'Action inconnue' });
-  } catch (e) {
+  } catch(e) {
     return res.status(200).json({ ok: false, error: e.message });
   }
 }
