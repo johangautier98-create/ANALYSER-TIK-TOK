@@ -114,34 +114,6 @@ async function extractFrames(file, count=4){
 }
 
 
-// ─── GEMINI MODEL SELECTOR (essaie plusieurs modèles) ────────────────────────
-const GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-flash-001',
-  'gemini-1.0-pro-vision-latest'
-];
-
-async function getGeminiUrl(key, method){
-  // Try to find a working model
-  for(const model of GEMINI_MODELS){
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':' + method + '?key=' + key;
-    try {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({contents:[{parts:[{text:'test'}]}]})
-      });
-      const d = await r.json();
-      if(!d.error || d.error.code !== 404){
-        // Model exists (even if this test call fails for other reasons)
-        return url;
-      }
-    } catch(e) {}
-  }
-  // Default fallback
-  return 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:' + method + '?key=' + key;
-}
 
 async function analyzeVideo(){
   if(!selectedVideo){ alert('Dépose une vidéo avant.'); return; }
@@ -295,7 +267,7 @@ async function callGeminiVision(geminiKey, ctx){
   }
 
   const r = await fetch(
-    await getGeminiUrl(geminiKey, 'generateContent'),
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + geminiKey,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2} }) }
   );
@@ -314,7 +286,7 @@ async function callGeminiScores(geminiKey, ctx, visionAnalysis){
   const prompt = `Tu es expert TikTok. Basé sur cette analyse visuelle d'une vidéo:\n\n${visionAnalysis}\n\nDonne tes scores PRÉCIS et VARIÉS (pas tous identiques). Réponds UNIQUEMENT en JSON:\n{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>,"score_global":<35-96>,"points_forts":["<point 1>","<point 2>"],"points_faibles":["<problème 1>","<problème 2>","<problème 3>"],"verdict_gemini":"<en 2 phrases: ce qui fonctionne et ce qui doit changer>"}`;
 
   const r = await fetch(
-    await getGeminiUrl(geminiKey, 'generateContent'),
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + geminiKey,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
@@ -393,7 +365,7 @@ async function callOpenAIReport(openaiKey, ctx, visionAnalysis){
 async function callGeminiReport(geminiKey, ctx, visionAnalysis){
   const prompt = buildGeminiFullPrompt(ctx, visionAnalysis);
   const r = await fetch(
-    await getGeminiUrl(geminiKey, 'generateContent'),
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + geminiKey,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
