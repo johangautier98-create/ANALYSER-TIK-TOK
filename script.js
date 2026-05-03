@@ -4,7 +4,7 @@ let lastAnalysis = null;
 let thumbState = { style:'viral', image:null, videoFile:null, videoUrl:null };
 
 const titles = {
-  analyze:['📊 Analyser une vidéo','Glisse ta vidéo au centre, choisis le contexte, puis lance l’analyse.'],
+  analyze:['📊 Analyser une vidéo','Glisse ta vidéo au centre, choisis le contexte, puis lance l\'analyse.'],
   history:['📂 Historique','Retrouve toutes les analyses sauvegardées automatiquement.'],
   planner:['📅 Planifier mes vidéos','Prépare les épisodes, hooks, titres et horaires de publication.'],
   scripts:['✍️ Générateur scripts','Réécris une vidéo en script TikTok propre, clair et viral.'],
@@ -50,7 +50,7 @@ async function connectAPIs(){
   if(openai)localStorage.setItem('OPENAI_KEY',openai);
   if(gemini)localStorage.setItem('GEMINI_KEY',gemini);
   const activeProvider = gemini ? 'Gemini + OpenAI' : openai ? 'OpenAI' : 'configuré';
-  setApiStatus('✅ Clés enregistrées — ' + activeProvider + ' prêt.', 'ok');
+  setApiStatus('✅ Clés enregistrées -- ' + activeProvider + ' prêt.', 'ok');
   qs('enterButton').disabled=false; qs('apiLive').textContent='Connecté'; qs('apiLive').classList.add('ok'); updateApiLabels();
 }
 function setApiStatus(msg,type){qs('apiStatus').textContent=msg; qs('apiStatus').className='status-box '+(type==='ok'?'status-ok':type==='error'?'status-error':'')}
@@ -84,8 +84,8 @@ function switchPage(page, btn){
 function dragOver(e){e.preventDefault(); qs('dropZone').classList.add('drag')}
 function dragLeave(e){e.preventDefault(); qs('dropZone').classList.remove('drag')}
 function dropVideo(e){e.preventDefault(); qs('dropZone').classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) pickVideo(f)}
-function pickVideo(file){if(!file||!file.type.startsWith('video/')){alert('Choisis un fichier vidéo.'); return;} selectedVideo=file; if(selectedVideoUrl) URL.revokeObjectURL(selectedVideoUrl); selectedVideoUrl=URL.createObjectURL(file); qs('videoName').textContent=file.name; qs('videoMeta').textContent=`${(file.size/1024/1024).toFixed(1)} Mo · prêt à analyser`; qs('videoPreview').classList.remove('hidden'); qs('contextPanel').classList.remove('hidden'); qs('analyzeBtn').disabled=false; qs('analysisStatus').textContent='Vidéo prête. Tu peux lancer l’analyse.'; qs('step2').classList.add('active'); thumbState.videoFile=file; thumbState.videoUrl=selectedVideoUrl;}
-function removeVideo(){selectedVideo=null; qs('videoPreview').classList.add('hidden'); qs('contextPanel').classList.add('hidden'); qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Dépose d’abord une vidéo.'; qs('results').classList.add('hidden')}
+function pickVideo(file){if(!file||!file.type.startsWith('video/')){alert('Choisis un fichier vidéo.'); return;} selectedVideo=file; if(selectedVideoUrl) URL.revokeObjectURL(selectedVideoUrl); selectedVideoUrl=URL.createObjectURL(file); qs('videoName').textContent=file.name; qs('videoMeta').textContent=`${(file.size/1024/1024).toFixed(1)} Mo · prêt à analyser`; qs('videoPreview').classList.remove('hidden'); qs('contextPanel').classList.remove('hidden'); qs('analyzeBtn').disabled=false; qs('analysisStatus').textContent='Video prete. Tu peux lancer l\'analyse.'; qs('step2').classList.add('active'); thumbState.videoFile=file; thumbState.videoUrl=selectedVideoUrl;}
+function removeVideo(){selectedVideo=null; qs('videoPreview').classList.add('hidden'); qs('contextPanel').classList.add('hidden'); qs('analyzeBtn').disabled=true; qs('analysisStatus').textContent='Dépose d\'abord une vidéo.'; qs('results').classList.add('hidden')}
 function resetAnalyzer(){removeVideo(); qs('results').innerHTML=''; switchPage('analyze', document.querySelector('[data-page="analyze"]'));}
 
 async function extractFrames(file, count=4){
@@ -123,14 +123,14 @@ async function analyzeVideo(){
   qs('results').classList.remove('hidden');
   qs('analyzeBtn').disabled = true;
   qs('step3').classList.add('active');
-  qs('analysisStatus').textContent = 'Analyse en cours…';
+  qs('analysisStatus').textContent = 'Analyse en cours...';
 
   const steps = [
-    {pct:10, msg:'🎬 Extraction des images de la vidéo…'},
-    {pct:30, msg:'👁️ Gemini examine ta vidéo image par image…'},
-    {pct:55, msg:'📊 Gemini calcule ses scores…'},
-    {pct:75, msg:'🧠 OpenAI valide et affine l\'analyse…'},
-    {pct:90, msg:'✍️ Génération du rapport complet…'},
+    {pct:10, msg:'🎬 Extraction des images de la vidéo...'},
+    {pct:30, msg:'👁️ Gemini examine ta vidéo image par image...'},
+    {pct:55, msg:'📊 Gemini calcule ses scores...'},
+    {pct:75, msg:'🧠 OpenAI valide et affine l\'analyse...'},
+    {pct:90, msg:'✍️ Génération du rapport complet...'},
     {pct:100, msg:'✅ Analyse terminée !'}
   ];
   let stepIdx = 0;
@@ -202,7 +202,7 @@ async function analyzeVideo(){
 
   } catch(e) {
     console.error('Analyse error:', e.message);
-    showProgress('❌ Erreur : ' + e.message + ' — Vérifie tes clés API et ta connexion.', 0);
+    showProgress('❌ Erreur : ' + e.message + ' -- Vérifie tes clés API et ta connexion.', 0);
     qs('analyzeBtn').disabled = false;
     qs('analysisStatus').textContent = 'Erreur analyse.';
     return;
@@ -248,7 +248,7 @@ function showProgress(msg, pct){
       <p style="color:#888;font-size:12px;margin:0">
         ${pct < 100 && pct > 0
           ? 'L\'analyse peut prendre jusqu\'à 90 secondes. Ne ferme pas la page.'
-          : pct === 100 ? 'Génération du rapport en cours…' : 'Vérifie tes clés API et ta connexion internet.'}
+          : pct === 100 ? 'Génération du rapport en cours...' : 'Vérifie tes clés API et ta connexion internet.'}
       </p>
     </div>`;
 }
@@ -424,44 +424,44 @@ function ensureReport(r){
   };
 }
 function localFallbackReport(p){
-  const hook=p?.hook || 'Ça a dégénéré direct…';
+  const hook=p?.hook || 'Ça a dégénéré direct...';
   return {
     score:65,
-    potential:'Bon potentiel — il faut renforcer les hooks et les explications',
+    potential:'Bon potentiel -- il faut renforcer les hooks et les explications',
     summaryTitle:'Vidéo exploitable avec une structure TikTok plus claire',
-    summaryText:'La vidéo peut fonctionner si elle prend le spectateur par la main. Pour TikTok, il faut expliquer très vite pourquoi il faut rester, puis relancer l’attention régulièrement. Un débutant doit retenir ceci : début fort, contexte simple, relances fréquentes, fin avec question.',
+    summaryText:'La vidéo peut fonctionner si elle prend le spectateur par la main. Pour TikTok, il faut expliquer très vite pourquoi il faut rester, puis relancer l\'attention régulièrement. Un débutant doit retenir ceci : début fort, contexte simple, relances fréquentes, fin avec question.',
     scores:{hook:7,rhythm:7,clarity:7,cta:6,emotion:8,thumbnail:7},
     cards:{
-      hook:'Le hook n’est pas juste une phrase au début. Il faut un hook au début, un au milieu, un juste avant la fin, puis une dernière question qui donne envie de commenter.',
-      rhythm:'Le rythme doit éviter les blancs, les hésitations et les moments où l’image ne change pas. Dès que ça ralentit, il faut couper, zoomer ou relancer.',
-      clarity:'Le spectateur ne connaît pas l’histoire. Il faut lui dire qui est là, quel est le problème, et ce qu’il doit regarder.',
-      cta:'La fin doit provoquer une réponse simple : “Tu aurais fait quoi ?”, “Il a raison ou pas ?”, “Tu veux la suite ?”.'
+      hook:'Le hook n\'est pas juste une phrase au début. Il faut un hook au début, un au milieu, un juste avant la fin, puis une dernière question qui donne envie de commenter.',
+      rhythm:'Le rythme doit éviter les blancs, les hésitations et les moments où l\'image ne change pas. Dès que ça ralentit, il faut couper, zoomer ou relancer.',
+      clarity:'Le spectateur ne connaît pas l\'histoire. Il faut lui dire qui est là, quel est le problème, et ce qu\'il doit regarder.',
+      cta:'La fin doit provoquer une réponse simple : "Tu aurais fait quoi ?", "Il a raison ou pas ?", "Tu veux la suite ?".'
     },
     deep:{
-      global:'La vidéo doit être comprise par quelqu’un qui arrive sans contexte. Elle doit annoncer le problème vite, garder la tension, et ne jamais laisser le spectateur se demander pourquoi il regarde.',
-      hookStart:'Dans les 0 à 3 secondes, commence par le moment fort ou une phrase choc. Ne commence pas par une introduction lente. Exemple : “Là, personne ne s’attendait à cette réaction.”',
-      hookMiddle:'Au milieu, ajoute une phrase qui relance : “Et là, tout change.” C’est une alarme qui réveille les gens qui commencent à décrocher.',
-      hookEnd:'Juste avant la fin, annonce la chute : “Le pire arrive maintenant.” La personne doit sentir qu’elle perd quelque chose si elle quitte la vidéo.',
+      global:'La vidéo doit être comprise par quelqu\'un qui arrive sans contexte. Elle doit annoncer le problème vite, garder la tension, et ne jamais laisser le spectateur se demander pourquoi il regarde.',
+      hookStart:'Dans les 0 à 3 secondes, commence par le moment fort ou une phrase choc. Ne commence pas par une introduction lente. Exemple : "Là, personne ne s\'attendait à cette réaction."',
+      hookMiddle:'Au milieu, ajoute une phrase qui relance : "Et là, tout change." C\'est une alarme qui réveille les gens qui commencent à décrocher.',
+      hookEnd:'Juste avant la fin, annonce la chute : "Le pire arrive maintenant." La personne doit sentir qu\'elle perd quelque chose si elle quitte la vidéo.',
       subtitles:'Sous-titres très gros, phrases courtes, contraste fort. Une seule idée par écran. Les mots importants peuvent être en jaune ou en gras.',
       sound:'Évite les blancs audio. Si le son est faible, renforce les sous-titres. Si une réaction est importante, ajoute un petit bruitage ou un zoom.'
     },
     timeline:[
-      ['0–1 sec','Phrase choc immédiate. Pas de bonjour. Pas d’intro. Il faut créer une curiosité directe.'],
-      ['1–3 sec','Contexte simple : qui parle, quel problème, pourquoi on doit regarder. Une phrase seulement.'],
-      ['3–6 sec','Relance visuelle : zoom léger, changement de plan, texte fort ou petit bruitage.'],
-      ['6–10 sec','Micro-hook : “Regarde bien sa réaction.” Il faut empêcher le spectateur de scroller.'],
-      ['10–18 sec','Couper les longueurs. Chaque seconde doit apporter une information, une émotion ou une tension.'],
-      ['18–25 sec','Préparer la suite : “À ce moment-là, tout le monde pense que c’est terminé…”'],
+      ['0-1 sec','Phrase choc immédiate. Pas de bonjour. Pas d\'intro. Il faut créer une curiosité directe.'],
+      ['1-3 sec','Contexte simple : qui parle, quel problème, pourquoi on doit regarder. Une phrase seulement.'],
+      ['3-6 sec','Relance visuelle : zoom léger, changement de plan, texte fort ou petit bruitage.'],
+      ['6-10 sec','Micro-hook : "Regarde bien sa réaction." Il faut empêcher le spectateur de scroller.'],
+      ['10-18 sec','Couper les longueurs. Chaque seconde doit apporter une information, une émotion ou une tension.'],
+      ['18-25 sec','Préparer la suite : "À ce moment-là, tout le monde pense que c\'est terminé..."'],
       ['Milieu','Relance émotionnelle : surprise, rire, tension, malaise, colère ou débat.'],
-      ['10 sec avant la fin','Annoncer la chute : “Le plus fou arrive maintenant.”'],
-      ['Dernières secondes','Question commentaire : “Tu aurais fait quoi à sa place ?”.']
+      ['10 sec avant la fin','Annoncer la chute : "Le plus fou arrive maintenant."'],
+      ['Dernières secondes','Question commentaire : "Tu aurais fait quoi à sa place ?".']
     ],
-    hooks:[hook,'Attends sa réaction, elle change tout…','Là, tout le monde pensait que ça allait se calmer…','Regarde bien ce qu’il fait juste après.','Personne n’avait prévu cette réponse.','Tu aurais fait quoi à sa place ?','Il a raison ou il abuse ?','S1 EP2 : tu veux voir la suite ?'],
-    actions:['Renforcer la première phrase.','Ajouter une relance toutes les 6 à 10 secondes.','Couper les blancs et hésitations.','Mettre des sous-titres gros et lisibles.','Créer une miniature claire avec 3 à 5 mots maximum.','Terminer par une question simple.','Préparer la suite si c’est une saison.'],
-    rewrite:['Hook : “Là, ça devait être calme… mais ça a dégénéré.”','Milieu : “Et là, tout le monde bloque.”','Fin : “Tu aurais répondu quoi ?”','Titre : “Il pensait avoir raison… jusqu’à cette réponse.”'],
+    hooks:[hook,'Attends sa réaction, elle change tout...','Là, tout le monde pensait que ça allait se calmer...','Regarde bien ce qu\'il fait juste après.','Personne n\'avait prévu cette réponse.','Tu aurais fait quoi à sa place ?','Il a raison ou il abuse ?','S1 EP2 : tu veux voir la suite ?'],
+    actions:['Renforcer la première phrase.','Ajouter une relance toutes les 6 à 10 secondes.','Couper les blancs et hésitations.','Mettre des sous-titres gros et lisibles.','Créer une miniature claire avec 3 à 5 mots maximum.','Terminer par une question simple.','Préparer la suite si c\'est une saison.'],
+    rewrite:['Hook : "Là, ça devait être calme... mais ça a dégénéré."','Milieu : "Et là, tout le monde bloque."','Fin : "Tu aurais répondu quoi ?"','Titre : "Il pensait avoir raison... jusqu\'à cette réponse."'],
     checklist:['Comprend-on le sujet en 3 secondes ?','Y a-t-il une relance avant 10 secondes ?','Les sous-titres sont-ils lisibles sur téléphone ?','La fin pose-t-elle une question ?','La miniature est-elle claire sans être mensongère ?'],
     errorsToAvoid:['Commencer par une intro lente.','Mettre un texte trop petit ou trop long.','Laisser un silence inutile.','Tout dévoiler dans la première phrase.','Finir sans question ni promesse de suite.'],
-    beginner:{do:['Commence par le moment le plus fort.','Explique comme si la personne ne connaissait rien.','Relance souvent avec une phrase courte.','Mets des sous-titres très gros.','Finis par une question simple.'],dont:['Ne commence pas lentement.','Ne surcharge pas l’écran.','Ne laisse pas de blanc inutile.','Ne fais pas une miniature trop chargée.','Ne termine pas sans CTA.']}
+    beginner:{do:['Commence par le moment le plus fort.','Explique comme si la personne ne connaissait rien.','Relance souvent avec une phrase courte.','Mets des sous-titres très gros.','Finis par une question simple.'],dont:['Ne commence pas lentement.','Ne surcharge pas l\'écran.','Ne laisse pas de blanc inutile.','Ne fais pas une miniature trop chargée.','Ne termine pas sans CTA.']}
   };
 }
 function renderReport(input){ renderReportInto(qs('results'), input); }
@@ -483,21 +483,21 @@ function renderReportInto(target, input){
     <div class="report-header-clean">
       <div>
         <span class="result-chip">Rapport ultra pédagogique</span>
-        <h2>📋 Analyse complète — claire, rangée, actionnable</h2>
-        <p>Lecture conseillée : commence par le score global, puis les priorités, puis les hooks, puis le plan d’action.</p>
+        <h2>📋 Analyse complète -- claire, rangée, actionnable</h2>
+        <p>Lecture conseillée : commence par le score global, puis les priorités, puis les hooks, puis le plan d'action.</p>
       </div>
       <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
     </div>
 
     <section class="report-section section-resume">
-      <div class="section-title"><span>1</span><div><h3>Résumé principal</h3><p>Ce qu’il faut comprendre en premier, sans se perdre dans les détails.</p></div></div>
+      <div class="section-title"><span>1</span><div><h3>Résumé principal</h3><p>Ce qu'il faut comprendre en premier, sans se perdre dans les détails.</p></div></div>
       <div class="score-hero clean-hero">
         <div class="score-ring no-slice"><strong>${r.score}</strong><span>/100</span><small>score global</small></div>
         <div class="hero-copy">
           <span class="potential">${r.potential}</span>
           <h3>${r.summaryTitle}</h3>
           <p>${r.summaryText}</p>
-          <div class="score-explain"><b>Lecture simple :</b> 0–50 = à retravailler · 50–70 = correct · 70–85 = bon potentiel · 85+ = très solide. Le score sert à savoir quoi corriger en priorité.</div>
+          <div class="score-explain"><b>Lecture simple :</b> 0-50 = à retravailler · 50-70 = correct · 70-85 = bon potentiel · 85+ = très solide. Le score sert à savoir quoi corriger en priorité.</div>
         </div>
         <div class="priority-box">
           <h4>🎯 Priorités immédiates</h4>
@@ -511,7 +511,7 @@ function renderReportInto(target, input){
       <div class="score-dashboard-grid">
         <div class="score-panel big">${bar('Hook',r.scores.hook)}<p>Capacité à arrêter le scroll et à créer de la curiosité.</p></div>
         <div class="score-panel">${bar('Rythme',r.scores.rhythm)}<p>Coupures, énergie, absence de moments mous.</p></div>
-        <div class="score-panel">${bar('Clarté',r.scores.clarity)}<p>Est-ce qu’un débutant comprend tout de suite ?</p></div>
+        <div class="score-panel">${bar('Clarté',r.scores.clarity)}<p>Est-ce qu'un débutant comprend tout de suite ?</p></div>
         <div class="score-panel">${bar('CTA',r.scores.cta)}<p>Fin qui donne envie de commenter ou regarder la suite.</p></div>
         <div class="score-panel">${bar('Émotion',r.scores.emotion)}<p>Réaction, tension, surprise, humour ou conflit.</p></div>
         <div class="score-panel">${bar('Miniature',r.scores.thumbnail)}<p>Lisibilité et envie de cliquer depuis la couverture.</p></div>
@@ -519,9 +519,9 @@ function renderReportInto(target, input){
     </section>
 
     <section class="report-section section-hooks">
-      <div class="section-title"><span>3</span><div><h3>Hooks dans toute la vidéo</h3><p>Le hook ne doit pas être uniquement au début : il faut relancer l’attention plusieurs fois.</p></div></div>
+      <div class="section-title"><span>3</span><div><h3>Hooks dans toute la vidéo</h3><p>Le hook ne doit pas être uniquement au début : il faut relancer l'attention plusieurs fois.</p></div></div>
       <div class="hook-score-grid clean-hooks">
-        <div class="hook-score-card"><strong>Début 0–3s</strong><b>${hookScores.start}/10</b><p>${r.deep.hookStart}</p></div>
+        <div class="hook-score-card"><strong>Début 0-3s</strong><b>${hookScores.start}/10</b><p>${r.deep.hookStart}</p></div>
         <div class="hook-score-card"><strong>Milieu / relance</strong><b>${hookScores.middle}/10</b><p>${r.deep.hookMiddle}</p></div>
         <div class="hook-score-card"><strong>Avant la fin</strong><b>${hookScores.end}/10</b><p>${r.deep.hookEnd}</p></div>
         <div class="hook-score-card"><strong>Rétention totale</strong><b>${hookScores.retention}/10</b><p>Il faut remettre une raison de rester toutes les 6 à 10 secondes.</p></div>
@@ -530,7 +530,7 @@ function renderReportInto(target, input){
     </section>
 
     <section class="report-section">
-      <div class="section-title"><span>4</span><div><h3>Analyse détaillée étape par étape</h3><p>Une lecture dans l’ordre de la vidéo, comme une fiche de correction.</p></div></div>
+      <div class="section-title"><span>4</span><div><h3>Analyse détaillée étape par étape</h3><p>Une lecture dans l'ordre de la vidéo, comme une fiche de correction.</p></div></div>
       <div class="timeline clean-timeline">${r.timeline.map((x,i)=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}<em class="mini-score">${i<3?'Priorité haute':i<6?'Priorité moyenne':'Finition'}</em></span></div>`).join('')}</div>
     </section>
 
@@ -546,7 +546,7 @@ function renderReportInto(target, input){
     <section class="report-section">
       <div class="section-title"><span>6</span><div><h3>Actions concrètes avant publication</h3><p>La liste simple à suivre avant de poster.</p></div></div>
       <div class="two-col clean-two-col">
-        <div class="wide-card"><h3>✅ Plan d’action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div>
+        <div class="wide-card"><h3>✅ Plan d'action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div>
         <div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div>
       </div>
     </section>
@@ -559,7 +559,7 @@ function renderReportInto(target, input){
       </div>
     </section>
     <section class="report-section">
-      <div class="section-title"><span>8</span><div><h3>Titres TikTok — Viralité maximale</h3><p>Clique pour copier directement.</p></div></div>
+      <div class="section-title"><span>8</span><div><h3>Titres TikTok -- Viralité maximale</h3><p>Clique pour copier directement.</p></div></div>
       <div class="pill-list ordered-pills">${(r.titres||[]).map((t,i)=>`<div class="pill pill-titre" onclick="navigator.clipboard.writeText('${t.replace(/'/g,'')}').then(()=>this.textContent='✅ Copié!')" style="cursor:pointer"><b>${i+1}</b>${t}</div>`).join('')}</div>
     </section>
     <section class="report-section">
@@ -595,7 +595,7 @@ function renderHistoryInto(el, h){
   el.innerHTML=h.map(item=>{
     const sc=item.report&&item.report.score||0;
     const col=sc>=80?'#00c48c':sc>=65?'#6c47ff':sc>=50?'#ff8c00':'#ff3d5a';
-    const title=item.report&&item.report.summaryTitle||item.report&&item.report.potential||'—';
+    const title=item.report&&item.report.summaryTitle||item.report&&item.report.potential||'--';
     const thumbHtml = item.thumb
       ? `<img src="${item.thumb}" class="hist-thumb-img" alt="miniature">`
       : `<div class="hist-thumb-placeholder">🎬</div>`;
@@ -621,7 +621,7 @@ function openReportModal(id){
   qs('modalVideoTitle').textContent=item.video||'Rapport';
   qs('modalVideoMeta').textContent=item.date+' · Score '+((item.report&&item.report.score)||0)+'/100';
   const body=qs('reportModalBody');
-  body.innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Chargement du rapport…</h2></div>';
+  body.innerHTML='<div class="loading-card"><div class="spinner"></div><h2>Chargement du rapport...</h2></div>';
   modal.classList.remove('hidden');
   document.body.style.overflow='hidden';
   setTimeout(()=>{ body.innerHTML=''; renderReportInto(body, item.report); }, 80);
@@ -635,10 +635,10 @@ function openHistory(id){openReportModal(id);}
 function clearHistory(){localStorage.removeItem('TA_HISTORY'); renderHistory();}
 function fillPlannerFromLast(){const r=lastAnalysis?.report || getHistory()[0]?.report; if(!r){alert('Fais une analyse avant.');return;} qs('plannerTitle').value=r.hooks[0]||r.summaryTitle; qs('plannerHook').value=r.hooks[1]||''}
 function savePlan(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); plans.unshift({id:Date.now(),title:qs('plannerTitle').value||'Nouvelle vidéo',season:qs('plannerSeason').value,episode:qs('plannerEpisode').value,date:qs('plannerDate').value,time:qs('plannerTime').value,hook:qs('plannerHook').value}); localStorage.setItem('TA_PLANS',JSON.stringify(plans)); renderPlans();}
-function renderPlans(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); const el=qs('plannerList'); if(!el)return; el.innerHTML=plans.map(p=>`<div class="plan-item"><h3>S${p.season} EP${p.episode} — ${p.title}</h3><p>${p.date||'Date à choisir'} à ${p.time||'--:--'} · Hook : ${p.hook||'à écrire'}</p></div>`).join('')}
-async function generateScript(){const idea=qs('scriptInput').value.trim() || (lastAnalysis? reportToText(lastAnalysis.report):''); if(!idea){alert('Mets une idée ou lance une analyse avant.');return;} qs('scriptOutput').textContent='Génération en cours…'; const script=`HOOK 0–2 sec :\n${idea.split('\n')[0].slice(0,90)}\n\nDÉROULÉ :\n1. Montrer tout de suite le moment fort.\n2. Expliquer en une phrase ce qui se passe.\n3. Relancer : “Et là, ça part encore plus loin…”\n4. Garder seulement les réactions utiles.\n5. Finir par : “Tu aurais fait quoi à sa place ?”\n\nSOUS-TITRES CONSEILLÉS :\n- Gros texte blanc, contour noir.\n- Mots importants en jaune.\n- Une phrase courte par écran.`; qs('scriptOutput').textContent=script;}
+function renderPlans(){const plans=JSON.parse(localStorage.getItem('TA_PLANS')||'[]'); const el=qs('plannerList'); if(!el)return; el.innerHTML=plans.map(p=>`<div class="plan-item"><h3>S${p.season} EP${p.episode} -- ${p.title}</h3><p>${p.date||'Date à choisir'} à ${p.time||'--:--'} · Hook : ${p.hook||'à écrire'}</p></div>`).join('')}
+async function generateScript(){const idea=qs('scriptInput').value.trim() || (lastAnalysis? reportToText(lastAnalysis.report):''); if(!idea){alert('Mets une idée ou lance une analyse avant.');return;} qs('scriptOutput').textContent='Génération en cours...'; const script=`HOOK 0-2 sec :\n${idea.split('\n')[0].slice(0,90)}\n\nDÉROULÉ :\n1. Montrer tout de suite le moment fort.\n2. Expliquer en une phrase ce qui se passe.\n3. Relancer : "Et là, ça part encore plus loin..."\n4. Garder seulement les réactions utiles.\n5. Finir par : "Tu aurais fait quoi à sa place ?"\n\nSOUS-TITRES CONSEILLÉS :\n- Gros texte blanc, contour noir.\n- Mots importants en jaune.\n- Une phrase courte par écran.`; qs('scriptOutput').textContent=script;}
 function generateScriptFromLast(){const r=lastAnalysis?.report || getHistory()[0]?.report; if(!r){alert('Fais une analyse avant.');return;} qs('scriptInput').value=reportToText(r); generateScript();}
-function renderIdeas(){const el=qs('ideasList'); if(!el)return; ['Le moment où tout bascule','Avant / après la dispute','La phrase qui a mis le feu','Ce qu’on n’a pas vu au début','La réaction que personne n’attendait'].forEach(t=>el.innerHTML+=`<div class="pill">${t}</div>`)}
+function renderIdeas(){const el=qs('ideasList'); if(!el)return; ['Le moment où tout bascule','Avant / après la dispute','La phrase qui a mis le feu','Ce qu\'on n\'a pas vu au début','La réaction que personne n\'attendait'].forEach(t=>el.innerHTML+=`<div class="pill">${t}</div>`)}
 
 // THUMBNAILS
 function initThumbnail(){setTimeout(renderThumbnail,100)}
@@ -671,7 +671,7 @@ function renderThumbnail(){
   ctx.fillStyle=shade; ctx.fillRect(0,0,W,H);
   ctx.fillStyle=b; ctx.beginPath(); ctx.roundRect(W*.06,H*.045,W*.28,H*.06,24); ctx.fill(); ctx.fillStyle='#fff'; ctx.font=`900 ${Math.round(W*.038)}px Arial`; ctx.textAlign='center'; ctx.fillText(`S${qs('thumbSeason')?.value||1}  EP${qs('thumbEpisode')?.value||1}`,W*.20,H*.085);
   ctx.fillStyle=a; ctx.fillRect(0,H*.69,W,H*.015); ctx.fillStyle=b; ctx.fillRect(0,H*.705,W,H*.012);
-  const text=(qs('thumbText')?.value||'ÇA A DÉGÉNÉRÉ').toUpperCase(); const sub=qs('thumbSubtext')?.value||'Regarde jusqu’à la fin';
+  const text=(qs('thumbText')?.value||'ÇA A DÉGÉNÉRÉ').toUpperCase(); const sub=qs('thumbSubtext')?.value||'Regarde jusqu\'à la fin';
   drawStrokeText(ctx,text,W*.06,H*.73,W*.88,Math.round(W*.105),'#fff','#000',10);
   ctx.fillStyle=a; ctx.font=`900 ${Math.round(W*.045)}px Arial`; ctx.textAlign='left'; ctx.fillText(sub.toUpperCase(),W*.07,H*.90);
   ctx.fillStyle='rgba(0,0,0,.75)';ctx.beginPath();ctx.roundRect(W*.06,H*.925,W*.88,H*.045,22);ctx.fill();ctx.fillStyle='#fff';ctx.font=`800 ${Math.round(W*.03)}px Arial`;ctx.textAlign='center';ctx.fillText('NOUVEL ÉPISODE · RÉACTION EN COMMENTAIRE',W/2,H*.955);
@@ -703,7 +703,7 @@ async function loadFromUrl() {
   if (!url) { alert('Colle un lien TikTok ou YouTube.'); return; }
 
   const preview = qs('urlVideoPreview');
-  preview.innerHTML = '<div class="loading-card"><div class="spinner"></div><p>Chargement des infos vidéo…</p></div>';
+  preview.innerHTML = '<div class="loading-card"><div class="spinner"></div><p>Chargement des infos vidéo...</p></div>';
   preview.classList.remove('hidden');
 
   try {
@@ -722,7 +722,7 @@ async function loadFromUrl() {
           </div>
           <div>
             <strong>${data.video.title || 'Vidéo TikTok'}</strong>
-            <small>Par ${data.video.author || '—'}</small>
+            <small>Par ${data.video.author || '--'}</small>
           </div>
           <button onclick="analyzeFromUrl()" class="primary-btn" style="margin-left:auto;padding:10px 16px;font-size:13px">
             🚀 Analyser cette vidéo
@@ -746,7 +746,7 @@ async function analyzeFromUrl() {
   qs('results').classList.remove('hidden');
   qs("results").innerHTML = `<div class="loading-card"><div class="spinner"></div><h2>Analyse en cours...</h2><p>Analyse via le lien en cours.</p></div>`;
   qs('analyzeBtn').disabled = true;
-  qs('analysisStatus').textContent = 'Analyse en cours…';
+  qs('analysisStatus').textContent = 'Analyse en cours...';
   qs('step3').classList.add('active');
 
   const payload = {
@@ -790,7 +790,7 @@ async function searchChannel() {
 
   const card = qs('channelCard');
   card.classList.remove('hidden');
-  card.innerHTML = '<div class="loading-card" style="padding:16px"><div class="spinner"></div><p>Recherche de la chaîne @' + username + '…</p></div>';
+  card.innerHTML = '<div class="loading-card" style="padding:16px"><div class="spinner"></div><p>Recherche de la chaîne @' + username + '...</p></div>';
 
   try {
     const res = await fetch('/api/tiktok', {
@@ -803,7 +803,7 @@ async function searchChannel() {
     if (data.ok && data.channel) {
       const ch = data.channel;
       const fmt = n => {
-        if (!n && n !== 0) return '—';
+        if (!n && n !== 0) return '--';
         if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
         if (n >= 1000)    return (n/1000).toFixed(1) + 'K';
         return n.toLocaleString('fr-FR');
