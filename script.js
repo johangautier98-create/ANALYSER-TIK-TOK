@@ -267,7 +267,7 @@ async function callGeminiVision(geminiKey, ctx){
   }
 
   const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + geminiKey,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2} }) }
   );
@@ -286,7 +286,7 @@ async function callGeminiScores(geminiKey, ctx, visionAnalysis){
   const prompt = `Tu es expert TikTok. Basé sur cette analyse visuelle d'une vidéo:\n\n${visionAnalysis}\n\nDonne tes scores PRÉCIS et VARIÉS (pas tous identiques). Réponds UNIQUEMENT en JSON:\n{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>,"score_global":<35-96>,"points_forts":["<point 1>","<point 2>"],"points_faibles":["<problème 1>","<problème 2>","<problème 3>"],"verdict_gemini":"<en 2 phrases: ce qui fonctionne et ce qui doit changer>"}`;
 
   const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + geminiKey,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
@@ -365,7 +365,7 @@ async function callOpenAIReport(openaiKey, ctx, visionAnalysis){
 async function callGeminiReport(geminiKey, ctx, visionAnalysis){
   const prompt = buildGeminiFullPrompt(ctx, visionAnalysis);
   const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + geminiKey,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
