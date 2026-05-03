@@ -371,81 +371,81 @@ async function callOpenAIValidate(openaiKey, ctx, visionAnalysis, geminiScores){
 
 // ─── FALLBACKS (si une seule IA) ─────────────────────────────────────────────
 async function callOpenAIVision(openaiKey, ctx){
-  // gpt-4o-mini supporte la vision - envoie les frames directement
-  const imageContent = ctx.frames
-    .filter(f => f.image)
-    .map(f => ({
-      type: 'image_url',
-      image_url: { url: f.image, detail: 'low' }
-    }));
-
-  if(!imageContent.length){
-    // Pas d images - analyse contextuelle uniquement
-    return 'Pas d images disponibles - analyse basee sur le contexte uniquement.';
-  }
-
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+openaiKey},
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 800,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Tu es expert TikTok. Analyse ces ' + imageContent.length + ' images d une video TikTok (niche: ' + ctx.contentType + ', duree: ~' + ctx.duration + 's, hook: "' + (ctx.hook||'non precise') + '"). Decris: ce qui se passe visuellement, les expressions des personnes, les sous-titres visibles, le rythme, la qualite image, les moments forts et faibles. Sois precis et factuel.' },
-          ...imageContent
-        ]
-      }]
+  const imageContent = ctx.frames.filter(f=>f.image).map(f=>({
+    type:'image_url',
+    image_url:{url:f.image, detail:'low'}
+  }));
+  if(!imageContent.length) return 'Pas d images disponibles.';
+  const r = await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+openaiKey},
+    body:JSON.stringify({
+      model:'gpt-4o-mini',
+      max_tokens:1000,
+      messages:[{role:'user',content:[
+        {type:'text',text:'Analyse ces '+imageContent.length+' frames d\'une video TikTok famille/drama (~'+ctx.duration+'s). Decris avec precision: expressions des personnes, sous-titres visibles (taille/couleur/lisibilite), qualite image, mouvements, rythme, moments forts/faibles, ce qui accroche et ce qui fait partir. Cite ce que tu VOIS vraiment.'},
+        ...imageContent
+      ]}]
     })
   });
-
-  if(!r.ok){
-    const err = await r.json().catch(()=>({}));
-    // If vision not supported, return empty (will still generate report with context)
-    if(err.error?.code === 'invalid_request_error') return '';
-    throw new Error('OpenAI vision: ' + (err.error?.message || r.status));
-  }
-  const data = await r.json();
-  return data.choices?.[0]?.message?.content || '';
+  if(!r.ok){const e=await r.json().catch(()=>({})); if(e.error?.code==='invalid_request_error') return ''; throw new Error('OpenAI vision: '+(e.error?.message||r.status));}
+  const data=await r.json();
+  return data.choices?.[0]?.message?.content||'';
 }
 
 async function callOpenAIReport(openaiKey, ctx, visionAnalysis){
-  return callOpenAIValidate(openaiKey, ctx, visionAnalysis, {});
+  const prompt = buildUltraPrompt(ctx, visionAnalysis);
+  const r = await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+openaiKey},
+    body:JSON.stringify({
+      model:'gpt-4o-mini',
+      max_tokens:3000,
+      temperature:0.2,
+      response_format:{type:'json_object'},
+      messages:[
+        {role:'system',content:'Tu es un expert TikTok senior ultra-critique. Tu analyses des videos avec la rigueur d\'un chirurgien. Tu donnes des notes BASSES si la video est mauvaise (1-4/10). Tu es factuel, precis, et tu donnes des phrases exactes a copier. JSON valide uniquement.'},
+        {role:'user',content:prompt}
+      ]
+    })
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({})); throw new Error('OpenAI: '+(e.error?.message||r.status));}
+  const data=await r.json();
+  const txt=data.choices?.[0]?.message?.content;
+  if(!txt) throw new Error('OpenAI: reponse vide');
+  return normalizeReport(JSON.parse(txt), localFallbackReport(ctx));
 }
 
 async function callGeminiReport(geminiKey, ctx, visionAnalysis){
-  const prompt = buildGeminiFullPrompt(ctx, visionAnalysis);
+  const prompt = buildUltraPrompt(ctx, visionAnalysis);
   const txt = await geminiPost(geminiKey, GEMINI_TEXT_MODELS, {
-    contents: [{parts:[{text: prompt}]}],
-    generationConfig: {temperature: 0.3, responseMimeType: 'application/json'}
+    contents:[{parts:[{text:prompt}]}],
+    generationConfig:{temperature:0.2, responseMimeType:'application/json'}
   });
   return normalizeReport(JSON.parse(txt.replace(/```json|```/g,'')), localFallbackReport(ctx));
 }
 
-function buildGeminiFullPrompt(ctx, visionAnalysis){
-  return 'Expert TikTok senior. Video: '+ctx.videoName+' | '+ctx.contentType+' | hook: "'+ctx.hook+'" | ~'+ctx.duration+'s\n'+(visionAnalysis?'Vision: '+visionAnalysis+'\n':'')+'Genere rapport complet JSON: {"score":<35-96>,"potential":"<phrase>","summaryTitle":"<titre>","summaryText":"<3-5 phrases>","scores":{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>},"hookScores":{"start":<3-10>,"middle":<3-10>,"end":<3-10>,"retention":<3-10>},"cards":{"hook":"<analyse>","rhythm":"<analyse>","clarity":"<analyse>","cta":"<analyse>"},"deep":{"global":"<analyse>","hookStart":"<analyse>","hookMiddle":"<analyse>","hookEnd":"<analyse>","subtitles":"<analyse>","sound":"<analyse>"},"timeline":[["0-1 sec","<conseil>"],["1-3 sec","<conseil>"],["3-8 sec","<conseil>"],["8-15 sec","<conseil>"],["15-25 sec","<conseil>"],["25-45 sec","<conseil>"],["45sec-1min","<conseil>"],["1min-fin","<conseil>"],["Dernieres sec","<CTA>"]],"hooks":["<h1>","<h2>","<h3>","<h4>","<h5>"],"titres":["<t1>","<t2>","<t3>","<t4>","<t5>"],"hashtags":["#t1","#t2","#t3","#t4","#t5","#t6","#t7","#t8"],"pubHeure":"<heure>","pubRaison":"<raison>","miniature":{"texte":"<texte>","couleurs":"<couleurs>","scene":"<scene>"},"actions":["<a1>","<a2>","<a3>","<a4>","<a5>"],"rewrite":["<r1>","<r2>","<r3>","<r4>"],"checklist":["<c1>","<c2>","<c3>","<c4>","<c5>"],"errorsToAvoid":["<e1>","<e2>","<e3>"],"beginner":{"do":["<d1>","<d2>","<d3>","<d4>","<d5>"],"dont":["<n1>","<n2>","<n3>","<n4>","<n5>"]},"score_details":{"revisionnage":<0-10>,"completion":<0-8>,"partages":<0-6>,"commentaires":<0-4>,"likes":<0-2>}}';
+function buildUltraPrompt(ctx, visionAnalysis){
+  const vision = visionAnalysis ? '\n\nANALYSE VISUELLE DES FRAMES:\n'+visionAnalysis+'\n' : '';
+  return 'Tu es un expert TikTok senior ultra-critique qui a analyse des milliers de videos virales. Tu DOIS etre severe et honnete: une video sans hook = 1-2/10, pas 6/10.\n\nALGORITHME TIKTOK 2025 (ce que tu sais):\n- Taux de completion >70% = viral. <40% = mort.\n- Revisionnage = signal le plus fort de viralite.\n- Partages > Commentaires > Likes\n- Premiere fenetre critique: 3 PREMIERES SECONDES\n- TikTok Vision AI scanne: sous-titres, couleurs, coupes, dynamisme\n- Videos >1min = payees double\n- Hook absent = 90% des gens partent en 2sec\n\nVIDEO:\n- Nom: '+ctx.videoName+'\n- Type: '+ctx.contentType+'\n- Hook actuel: "'+ctx.hook+'"\n- Duree: ~'+ctx.duration+'s'+vision+'\n\nREGLES ABSOLUES:\n1. Si la video est mauvaise, DIS-LE. Note 1-4/10 si necessaire.\n2. Timeline TOUTES LES 5 SECONDES avec action precise.\n3. Phrases EXACTES a dire/ecrire, pas des conseils vagues.\n4. Critique FACTUELLE: cite exactement ce qui ne va pas.\n5. Audience 12-65 ans: explique simplement.\n\nReponds en JSON exact:\n{"score_global":<1.0-10.0>,"scores":{"hook":<1-10>,"visuel":<1-10>,"viralite":<1-10>,"coherence":<1-10>,"retention":<1-10>,"magnetisme":<1-10>},"potentiel":"<phrase critique courte>","plan_action":{"structure":"<correction structure - phrase exacte>","technique":"<correction technique - ce qu\'il faut faire>","strategie":"<strategie future - serie, format, etc>"},"analyse_hook":"<analyse 0-3s ultra-critique avec timestamp et phrase de remplacement exacte>","dynamisme_visuel":"<analyse rythme, sous-titres, coupes, couleurs - critique precise>","script_storytelling":"<analyse narration, tension, coherence - tres critique>","potentiel_viral":"<analyse partageabilite, emotion, angle - precise>","audio_ambiance":"<analyse voix, musique, effets - critique>","call_to_action":"<analyse CTA - timing exact et phrase de remplacement>","timeline":[["0-5s","<ce qui se passe + note /10 + action precise>"],["5-10s","<...>"],["10-15s","<...>"],["15-20s","<...>"],["20-25s","<...>"],["25-30s","<...>"],["30-35s","<...>"],["35-40s","<...>"],["40-45s","<...>"],["45-50s","<...>"],["50-55s","<...>"],["55-60s","<...>"],["60s+","<si applicable>"]],"hooks":["<hook viral 1 - phrase exacte>","<hook viral 2>","<hook viral 3>","<hook viral 4>","<hook viral 5>"],"titres":["<titre TikTok viral 1>","<titre 2>","<titre 3>","<titre 4>","<titre 5>"],"hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"pub_heure":"<ex: Vendredi 19h30>","pub_raison":"<pourquoi cet horaire>","miniature":{"texte":"<TEXTE GROS MAX 5 MOTS>","couleurs":"<palette exacte>","scene":"<scene a capturer>"},"transcription":"<transcription approximative du contenu audio/textes vus>","beginner_tips":["<conseil 1 simple pour debutant>","<conseil 2>","<conseil 3>","<conseil 4>","<conseil 5>"]}';
 }
+
 
 function normalizeReport(r, base){
   if(!r||typeof r!=='object') return base;
+  // Support both old format (score/100) and new format (score_global/10)
+  if(r.score && !r.score_global) r.score_global = (r.score/10).toFixed(1)*1;
+  if(r.score_global && !r.score) r.score = Math.round(r.score_global*10);
   return {
     ...base,...r,
     scores:{...base.scores,...(r.scores||{})},
-    hookScores:{...base.hookScores,...(r.hookScores||{})},
-    cards:{...base.cards,...(r.cards||{})},
-    deep:{...base.deep,...(r.deep||{})},
-    beginner:{...base.beginner,...(r.beginner||{})},
+    plan_action:{...base.plan_action,...(r.plan_action||{})},
     miniature:{...base.miniature,...(r.miniature||{})},
-    score_details:{...base.score_details,...(r.score_details||{})},
     timeline:r.timeline?.length?r.timeline:base.timeline,
     hooks:r.hooks?.length?r.hooks:base.hooks,
     titres:r.titres?.length?r.titres:base.titres,
     hashtags:r.hashtags?.length?r.hashtags:base.hashtags,
-    actions:r.actions?.length?r.actions:base.actions,
-    rewrite:r.rewrite?.length?r.rewrite:base.rewrite,
-    checklist:r.checklist?.length?r.checklist:base.checklist,
-    errorsToAvoid:r.errorsToAvoid?.length?r.errorsToAvoid:base.errorsToAvoid,
+    beginner_tips:r.beginner_tips?.length?r.beginner_tips:base.beginner_tips,
   };
 }
 
@@ -468,163 +468,110 @@ function ensureReport(r){
   };
 }
 function localFallbackReport(p){
-  const hook=p?.hook || 'Ça a dégénéré direct...';
   return {
-    score:65,
-    potential:'Bon potentiel -- il faut renforcer les hooks et les explications',
-    summaryTitle:'Vidéo exploitable avec une structure TikTok plus claire',
-    summaryText:'La vidéo peut fonctionner si elle prend le spectateur par la main. Pour TikTok, il faut expliquer très vite pourquoi il faut rester, puis relancer l\'attention régulièrement. Un débutant doit retenir ceci : début fort, contexte simple, relances fréquentes, fin avec question.',
-    scores:{hook:7,rhythm:7,clarity:7,cta:6,emotion:8,thumbnail:7},
-    cards:{
-      hook:'Le hook n\'est pas juste une phrase au début. Il faut un hook au début, un au milieu, un juste avant la fin, puis une dernière question qui donne envie de commenter.',
-      rhythm:'Le rythme doit éviter les blancs, les hésitations et les moments où l\'image ne change pas. Dès que ça ralentit, il faut couper, zoomer ou relancer.',
-      clarity:'Le spectateur ne connaît pas l\'histoire. Il faut lui dire qui est là, quel est le problème, et ce qu\'il doit regarder.',
-      cta:'La fin doit provoquer une réponse simple : "Tu aurais fait quoi ?", "Il a raison ou pas ?", "Tu veux la suite ?".'
+    score_global:5.0, score:50,
+    potentiel:'Analyse non disponible - verifie ta cle API',
+    scores:{hook:5,visuel:5,viralite:5,coherence:5,retention:5,magnetisme:5},
+    plan_action:{
+      structure:'Configure ta cle OpenAI.',
+      technique:'Va dans les parametres et entre ta cle API OpenAI.',
+      strategie:'Une fois configure, l\'analyse sera ultra-detaillee et critique.'
     },
-    deep:{
-      global:'La vidéo doit être comprise par quelqu\'un qui arrive sans contexte. Elle doit annoncer le problème vite, garder la tension, et ne jamais laisser le spectateur se demander pourquoi il regarde.',
-      hookStart:'Dans les 0 à 3 secondes, commence par le moment fort ou une phrase choc. Ne commence pas par une introduction lente. Exemple : "Là, personne ne s\'attendait à cette réaction."',
-      hookMiddle:'Au milieu, ajoute une phrase qui relance : "Et là, tout change." C\'est une alarme qui réveille les gens qui commencent à décrocher.',
-      hookEnd:'Juste avant la fin, annonce la chute : "Le pire arrive maintenant." La personne doit sentir qu\'elle perd quelque chose si elle quitte la vidéo.',
-      subtitles:'Sous-titres très gros, phrases courtes, contraste fort. Une seule idée par écran. Les mots importants peuvent être en jaune ou en gras.',
-      sound:'Évite les blancs audio. Si le son est faible, renforce les sous-titres. Si une réaction est importante, ajoute un petit bruitage ou un zoom.'
-    },
+    analyse_hook:'Non disponible - cle API requise.',
+    dynamisme_visuel:'Non disponible.',
+    script_storytelling:'Non disponible.',
+    potentiel_viral:'Non disponible.',
+    audio_ambiance:'Non disponible.',
+    call_to_action:'Non disponible.',
     timeline:[
-      ['0-1 sec','Phrase choc immédiate. Pas de bonjour. Pas d\'intro. Il faut créer une curiosité directe.'],
-      ['1-3 sec','Contexte simple : qui parle, quel problème, pourquoi on doit regarder. Une phrase seulement.'],
-      ['3-6 sec','Relance visuelle : zoom léger, changement de plan, texte fort ou petit bruitage.'],
-      ['6-10 sec','Micro-hook : "Regarde bien sa réaction." Il faut empêcher le spectateur de scroller.'],
-      ['10-18 sec','Couper les longueurs. Chaque seconde doit apporter une information, une émotion ou une tension.'],
-      ['18-25 sec','Préparer la suite : "À ce moment-là, tout le monde pense que c\'est terminé..."'],
-      ['Milieu','Relance émotionnelle : surprise, rire, tension, malaise, colère ou débat.'],
-      ['10 sec avant la fin','Annoncer la chute : "Le plus fou arrive maintenant."'],
-      ['Dernières secondes','Question commentaire : "Tu aurais fait quoi à sa place ?".']
+      ['0-5s','Analyse non disponible'],['5-10s','Analyse non disponible'],
+      ['10-15s','Analyse non disponible'],['15-20s','Analyse non disponible'],
+      ['20-25s','Analyse non disponible'],['25-30s','Analyse non disponible'],
+      ['30-35s','Analyse non disponible'],['35-40s','Analyse non disponible'],
+      ['40-45s','Analyse non disponible'],['45-50s','Analyse non disponible'],
+      ['50-55s','Analyse non disponible'],['55-60s','Analyse non disponible'],
     ],
-    hooks:[hook,'Attends sa réaction, elle change tout...','Là, tout le monde pensait que ça allait se calmer...','Regarde bien ce qu\'il fait juste après.','Personne n\'avait prévu cette réponse.','Tu aurais fait quoi à sa place ?','Il a raison ou il abuse ?','S1 EP2 : tu veux voir la suite ?'],
-    actions:['Renforcer la première phrase.','Ajouter une relance toutes les 6 à 10 secondes.','Couper les blancs et hésitations.','Mettre des sous-titres gros et lisibles.','Créer une miniature claire avec 3 à 5 mots maximum.','Terminer par une question simple.','Préparer la suite si c\'est une saison.'],
-    rewrite:['Hook : "Là, ça devait être calme... mais ça a dégénéré."','Milieu : "Et là, tout le monde bloque."','Fin : "Tu aurais répondu quoi ?"','Titre : "Il pensait avoir raison... jusqu\'à cette réponse."'],
-    checklist:['Comprend-on le sujet en 3 secondes ?','Y a-t-il une relance avant 10 secondes ?','Les sous-titres sont-ils lisibles sur téléphone ?','La fin pose-t-elle une question ?','La miniature est-elle claire sans être mensongère ?'],
-    errorsToAvoid:['Commencer par une intro lente.','Mettre un texte trop petit ou trop long.','Laisser un silence inutile.','Tout dévoiler dans la première phrase.','Finir sans question ni promesse de suite.'],
-    beginner:{do:['Commence par le moment le plus fort.','Explique comme si la personne ne connaissait rien.','Relance souvent avec une phrase courte.','Mets des sous-titres très gros.','Finis par une question simple.'],dont:['Ne commence pas lentement.','Ne surcharge pas l\'écran.','Ne laisse pas de blanc inutile.','Ne fais pas une miniature trop chargée.','Ne termine pas sans CTA.']}
+    hooks:['Ca a degénere direct...','Attends sa reaction...','Personne n\'attendait ca.','Tu aurais fait quoi ?','La suite arrive...'],
+    titres:['Titre a generer avec cle API','Titre 2','Titre 3','Titre 4','Titre 5'],
+    hashtags:['#famille','#drama','#tiktokfr','#couple','#reaction','#viral','#lifestyle','#humour'],
+    pub_heure:'Vendredi 19h30',
+    pub_raison:'Meilleur creneau pour la niche famille/drama',
+    miniature:{texte:'CA A DEGÉNERE',couleurs:'Fond rouge, texte blanc',scene:'Expression de surprise'},
+    transcription:'Transcription non disponible - cle API requise.',
+    beginner_tips:['Configure ta cle OpenAI','Lance l\'analyse','Lis le rapport','Applique les corrections','Reanalyse apres corrections']
   };
 }
-function renderReport(input){ renderReportInto(qs('results'), input); }
-function renderReportInto(target, input){
-  const r = ensureReport(input);
-  const hookScores = r.hookScores || {
-    start: Math.max(5, Math.min(10, r.scores.hook)),
-    middle: Math.max(5, Math.min(10, r.scores.rhythm)),
-    end: Math.max(5, Math.min(10, r.scores.cta)),
-    retention: Math.max(5, Math.min(10, Math.round((r.scores.hook+r.scores.rhythm+r.scores.emotion)/3)))
-  };
-  const priorityBadges = [
-    ['À corriger en premier','Le hook + la première phrase'],
-    ['À améliorer ensuite','Le rythme et les coupures'],
-    ['À finaliser','La fin + la question commentaire']
-  ];
-  target.innerHTML=`
-  <div class="report-shell">
-    <div class="report-header-clean">
-      <div>
-        <span class="result-chip">Rapport ultra pédagogique</span>
-        <h2>📋 Analyse complète -- claire, rangée, actionnable</h2>
-        <p>Lecture conseillée : commence par le score global, puis les priorités, puis les hooks, puis le plan d'action.</p>
-      </div>
-      <button class="secondary-btn" onclick="copyReport()">Copier le rapport</button>
-    </div>
 
-    <section class="report-section section-resume">
-      <div class="section-title"><span>1</span><div><h3>Résumé principal</h3><p>Ce qu'il faut comprendre en premier, sans se perdre dans les détails.</p></div></div>
-      <div class="score-hero clean-hero">
-        <div class="score-ring no-slice"><strong>${r.score}</strong><span>/100</span><small>score global</small></div>
-        <div class="hero-copy">
-          <span class="potential">${r.potential}</span>
-          <h3>${r.summaryTitle}</h3>
-          <p>${r.summaryText}</p>
-          <div class="score-explain"><b>Lecture simple :</b> 0-50 = à retravailler · 50-70 = correct · 70-85 = bon potentiel · 85+ = très solide. Le score sert à savoir quoi corriger en priorité.</div>
-        </div>
-        <div class="priority-box">
-          <h4>🎯 Priorités immédiates</h4>
-          ${priorityBadges.map(x=>`<div class="priority-row"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('')}
-        </div>
-      </div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>2</span><div><h3>Scores par catégorie</h3><p>Chaque score indique une zone précise à améliorer.</p></div></div>
-      <div class="score-dashboard-grid">
-        <div class="score-panel big">${bar('Hook',r.scores.hook)}<p>Capacité à arrêter le scroll et à créer de la curiosité.</p></div>
-        <div class="score-panel">${bar('Rythme',r.scores.rhythm)}<p>Coupures, énergie, absence de moments mous.</p></div>
-        <div class="score-panel">${bar('Clarté',r.scores.clarity)}<p>Est-ce qu'un débutant comprend tout de suite ?</p></div>
-        <div class="score-panel">${bar('CTA',r.scores.cta)}<p>Fin qui donne envie de commenter ou regarder la suite.</p></div>
-        <div class="score-panel">${bar('Émotion',r.scores.emotion)}<p>Réaction, tension, surprise, humour ou conflit.</p></div>
-        <div class="score-panel">${bar('Miniature',r.scores.thumbnail)}<p>Lisibilité et envie de cliquer depuis la couverture.</p></div>
-      </div>
-    </section>
-
-    <section class="report-section section-hooks">
-      <div class="section-title"><span>3</span><div><h3>Hooks dans toute la vidéo</h3><p>Le hook ne doit pas être uniquement au début : il faut relancer l'attention plusieurs fois.</p></div></div>
-      <div class="hook-score-grid clean-hooks">
-        <div class="hook-score-card"><strong>Début 0-3s</strong><b>${hookScores.start}/10</b><p>${r.deep.hookStart}</p></div>
-        <div class="hook-score-card"><strong>Milieu / relance</strong><b>${hookScores.middle}/10</b><p>${r.deep.hookMiddle}</p></div>
-        <div class="hook-score-card"><strong>Avant la fin</strong><b>${hookScores.end}/10</b><p>${r.deep.hookEnd}</p></div>
-        <div class="hook-score-card"><strong>Rétention totale</strong><b>${hookScores.retention}/10</b><p>Il faut remettre une raison de rester toutes les 6 à 10 secondes.</p></div>
-      </div>
-      <div class="wide-card compact-card"><h4>🔥 Hooks prêts à utiliser</h4><div class="pill-list ordered-pills">${r.hooks.map((h,i)=>`<div class="pill"><b>${i+1}</b>${h}</div>`).join('')}</div></div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>4</span><div><h3>Analyse détaillée étape par étape</h3><p>Une lecture dans l'ordre de la vidéo, comme une fiche de correction.</p></div></div>
-      <div class="timeline clean-timeline">${r.timeline.map((x,i)=>`<div class="tl-item"><b>${x[0]}</b><span>${x[1]}<em class="mini-score">${i<3?'Priorité haute':i<6?'Priorité moyenne':'Finition'}</em></span></div>`).join('')}</div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>5</span><div><h3>Compréhension débutant total</h3><p>La partie la plus simple : quoi faire et quoi éviter.</p></div></div>
-      <div class="lesson-box"><h3>🧠 Explication simple pour Patrick</h3><p>${r.deep.global}</p></div>
-      <div class="do-dont clean-do-dont">
-        <div class="do"><h4>✅ FAIS ÇA</h4><ul>${r.beginner.do.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-        <div class="dont"><h4>❌ NE FAIS PAS ÇA</h4><ul>${r.beginner.dont.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      </div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>6</span><div><h3>Actions concrètes avant publication</h3><p>La liste simple à suivre avant de poster.</p></div></div>
-      <div class="two-col clean-two-col">
-        <div class="wide-card"><h3>✅ Plan d'action prioritaire</h3><ol>${r.actions.map(a=>`<li>${a}</li>`).join('')}</ol></div>
-        <div class="wide-card"><h3>✍️ Réécriture proposée</h3><ul>${r.rewrite.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      </div>
-    </section>
-
-    <section class="report-section">
-      <div class="section-title"><span>7</span><div><h3>Derniers contrôles</h3><p>À vérifier juste avant de publier sur TikTok.</p></div></div>
-      <div class="two-col clean-two-col">
-        <div class="wide-card"><h3>📌 Checklist avant publication</h3><ul>${r.checklist.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-        <div class="wide-card danger-soft"><h3>🚫 Erreurs à éviter</h3><ul>${r.errorsToAvoid.map(a=>`<li>${a}</li>`).join('')}</ul></div>
-      </div>
-    </section>
-    <section class="report-section">
-      <div class="section-title"><span>8</span><div><h3>Titres TikTok -- Viralité maximale</h3><p>Clique pour copier directement.</p></div></div>
-      <div class="pill-list ordered-pills">${(r.titres||[]).map((t,i)=>`<div class="pill pill-titre" onclick="navigator.clipboard.writeText('${t.replace(/'/g,'')}').then(()=>this.textContent='✅ Copié!')" style="cursor:pointer"><b>${i+1}</b>${t}</div>`).join('')}</div>
-    </section>
-    <section class="report-section">
-      <div class="section-title"><span>9</span><div><h3>Hashtags & Meilleur moment</h3><p>Prêts à copier-coller.</p></div></div>
-      <div class="two-col clean-two-col">
-        <div class="wide-card">
-          <h3># Hashtags recommandés</h3>
-          <div class="pill-list">${(r.hashtags||[]).map(h=>`<div class="pill pill-tag" onclick="navigator.clipboard.writeText('${h}')">${h}</div>`).join('')}</div>
-          <button class="secondary-btn" style="margin-top:10px;width:100%" onclick="navigator.clipboard.writeText('${(r.hashtags||[]).join(' ')}').then(()=>this.textContent='✅ Copié!')">📋 Copier tous les hashtags</button>
-        </div>
-        <div class="wide-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac">
-          <h3>📅 Meilleur moment pour publier</h3>
-          <div style="font-size:30px;font-weight:800;color:#16a34a;margin:10px 0">${r.pubHeure||'19h30'}</div>
-          <p style="font-size:13px;color:#166534">${r.pubRaison||'Créneau optimal pour ta niche famille/drama'}</p>
-        </div>
-      </div>
-    </section>
-  </div>`;
+function renderHistoryInto(el, h){
+  if(!h||!h.length){
+    el.innerHTML='<div class="empty-card"><h2>Aucune analyse</h2><p>Lance une premiere analyse pour la voir ici.</p></div>';
+    return;
+  }
+  el.innerHTML = h.map(item => {
+    const r = item.report || {};
+    const sg = r.score_global || (r.score ? r.score/10 : 5);
+    const sc = r.scores || {};
+    const pa = r.plan_action || {};
+    const planTxt = [pa.structure,pa.technique,pa.strategie].filter(Boolean).join(' ').substring(0,200);
+    const col = sg>=7.5?'#16a34a':sg>=5?'#d97706':'#dc2626';
+    const scoreBar = (val, label) => {
+      const pct = Math.round((val||0)*10);
+      const c = (val||0)>=7?'#16a34a':(val||0)>=5?'#d97706':'#dc2626';
+      return '<div class="vly-score-row"><span>'+label+'</span><div class="vly-bar"><div class="vly-bar-fill" style="width:'+pct+'%;background:'+c+'"></div></div><b style="color:'+c+'">'+((val||0).toFixed?val.toFixed(0):val)+'/10</b></div>';
+    };
+    return '<div class="vly-video-card" onclick="openReportModal('+item.id+')" style="cursor:pointer">'
+      +'<div class="vly-thumb">'+(item.thumb?'<img src="'+item.thumb+'" alt="thumb">':'<div class="vly-thumb-ph">🎬</div>')+'</div>'
+      +'<div class="vly-mid">'
+        +'<div class="vly-vid-name">'+item.video+'</div>'
+        +'<div class="vly-vid-meta"><span class="vly-badge-ok">Termine</span> <span>'+item.date+'</span></div>'
+        +(planTxt?'<div class="vly-plan-preview"><b>Plan d\'Action :</b> '+planTxt+'...</div>':'')
+      +'</div>'
+      +'<div class="vly-right">'
+        +'<div class="vly-score-global"><span>Score Global</span><b style="color:'+col+'">'+sg.toFixed(1)+'</b><span class="vly-den">/10</span></div>'
+        +scoreBar(sc.hook,'Hook')
+        +scoreBar(sc.visuel,'Visuel')
+        +scoreBar(sc.viralite,'Viralite')
+        +scoreBar(sc.coherence,'Coherence')
+        +scoreBar(sc.retention,'Retention')
+        +scoreBar(sc.magnetisme,'Magnetisme')
+      +'</div>'
+      +'<div class="vly-actions">'
+        +'<button class="vly-btn-primary" onclick="event.stopPropagation();openReportModal('+item.id+')">Voir l\'analyse</button>'
+        +'<button class="vly-btn-del" onclick="event.stopPropagation();delEntry('+item.id+')">Supprimer</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
 }
+
+function renderReportInto(target, r){
+  if(!r||typeof r!=='object') r = {};
+  const sg = r.score_global || (r.score?r.score/10:5);
+  const sc = r.scores || {};
+  const pa = r.plan_action || {};
+  const col = (v) => v>=7?'#16a34a':v>=5?'#d97706':'#dc2626';
+  const bar6 = (label, val) => {
+    const v = val||0;
+    const pct = Math.round(v*10);
+    return '<div class="rpt-score-row"><span class="rpt-score-label">'+label+'</span>'
+      +'<div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:'+pct+'%;background:'+col(v)+'"></div></div>'
+      +'<span class="rpt-score-val" style="color:'+col(v)+'">'+Math.round(v)+'/10</span></div>';
+  };
+  const section = (icon, title, content) =>
+    '<div class="rpt-section"><h3 class="rpt-section-title">'+icon+' '+title+'</h3><p class="rpt-section-body">'+content+'</p></div>';
+  const timeline = (r.timeline||[]).map(t => {
+    const time = t[0]||''; const conseil = t[1]||'';
+    return '<div class="rpt-tl-item"><b class="rpt-tl-time">'+time+'</b><span>'+conseil+'</span></div>';
+  }).join('');
+  const hooks = (r.hooks||[]).map((h,i) =>
+    '<div class="rpt-hook-item" data-copy="1"><span class="rpt-hook-num">'+('0'+(i+1)).slice(-2)+'</span><span class="rpt-hook-txt">'+h+'</span><span class="rpt-copy">Copier</span></div>'
+  ).join('');
+  const titres = (r.titres||[]).map((t,i) =>
+    '<div class="rpt-titre-item" data-copy="1"><b>'+(i+1)+'.</b> <span class="rpt-titre-txt">'+t+'</span><span class="rpt-copy">Copier</span></div>'
+  ).join('');
+  
+
 function bar(label,val){return `<div class="bar-row"><span>${label}</span><div class="bar"><i style="width:${val*10}%"></i></div><b>${val}/10</b></div>`}
-function reportToText(r=lastAnalysis?.report){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
+function reportToText(r=lastAnalysis?.report||{}){if(!r)return'';return `${r.summaryTitle}\nScore: ${r.score}/100\n\n${r.summaryText}\n\nHooks:\n- ${r.hooks.join('\n- ')}\n\nActions:\n- ${r.actions.join('\n- ')}`}
 function copyReport(){navigator.clipboard.writeText(reportToText()).then(()=>alert('Rapport copié'))}
 function saveHistory(item){const h=JSON.parse(localStorage.getItem('TA_HISTORY')||'[]'); h.unshift(item); localStorage.setItem('TA_HISTORY',JSON.stringify(h.slice(0,30))); lastAnalysis=item;}
 function getHistory(){return JSON.parse(localStorage.getItem('TA_HISTORY')||'[]')}
@@ -659,6 +606,16 @@ function renderHistoryInto(el, h){
     </div>`;
   }).join('');
 }
+// Copy delegation for report items
+document.addEventListener('click', function(e){
+  const item = e.target.closest('[data-copy]');
+  if(!item) return;
+  const txt = item.querySelector('.rpt-hook-txt,.rpt-titre-txt');
+  if(txt){ navigator.clipboard.writeText(txt.textContent).then(()=>{ item.classList.add('copied'); setTimeout(()=>item.classList.remove('copied'),1500); }); }
+  const tag = e.target.closest('.rpt-tag');
+  if(tag){ navigator.clipboard.writeText(tag.textContent).then(()=>{ tag.style.background='#dcfce7'; setTimeout(()=>tag.style.background='',1000); }); }
+});
+
 function openReportModal(id){
   const item=getHistory().find(x=>x.id===id); if(!item)return; lastAnalysis=item;
   const modal=qs('reportModal'); if(!modal)return;
@@ -1015,4 +972,6 @@ function removeCompetitor(i){
   const list=getCompetitors(); list.splice(i,1);
   localStorage.setItem('TA_COMPETITORS',JSON.stringify(list));
   renderCompetitors();
+}
+
 }
