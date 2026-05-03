@@ -113,6 +113,36 @@ async function extractFrames(file, count=4){
   });
 }
 
+
+// ─── GEMINI MODEL SELECTOR (essaie plusieurs modèles) ────────────────────────
+const GEMINI_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash-001',
+  'gemini-1.0-pro-vision-latest'
+];
+
+async function getGeminiUrl(key, method){
+  // Try to find a working model
+  for(const model of GEMINI_MODELS){
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':' + method + '?key=' + key;
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({contents:[{parts:[{text:'test'}]}]})
+      });
+      const d = await r.json();
+      if(!d.error || d.error.code !== 404){
+        // Model exists (even if this test call fails for other reasons)
+        return url;
+      }
+    } catch(e) {}
+  }
+  // Default fallback
+  return 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:' + method + '?key=' + key;
+}
+
 async function analyzeVideo(){
   if(!selectedVideo){ alert('Dépose une vidéo avant.'); return; }
   const k = getKeys();
@@ -265,7 +295,7 @@ async function callGeminiVision(geminiKey, ctx){
   }
 
   const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
+    await getGeminiUrl(geminiKey, 'generateContent'),
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ contents:[{parts}], generationConfig:{temperature:0.2} }) }
   );
@@ -284,7 +314,7 @@ async function callGeminiScores(geminiKey, ctx, visionAnalysis){
   const prompt = `Tu es expert TikTok. Basé sur cette analyse visuelle d'une vidéo:\n\n${visionAnalysis}\n\nDonne tes scores PRÉCIS et VARIÉS (pas tous identiques). Réponds UNIQUEMENT en JSON:\n{"hook":<3-10>,"rhythm":<3-10>,"clarity":<3-10>,"cta":<3-10>,"emotion":<3-10>,"thumbnail":<3-10>,"score_global":<35-96>,"points_forts":["<point 1>","<point 2>"],"points_faibles":["<problème 1>","<problème 2>","<problème 3>"],"verdict_gemini":"<en 2 phrases: ce qui fonctionne et ce qui doit changer>"}`;
 
   const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
+    await getGeminiUrl(geminiKey, 'generateContent'),
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
@@ -363,7 +393,7 @@ async function callOpenAIReport(openaiKey, ctx, visionAnalysis){
 async function callGeminiReport(geminiKey, ctx, visionAnalysis){
   const prompt = buildGeminiFullPrompt(ctx, visionAnalysis);
   const r = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey,
+    await getGeminiUrl(geminiKey, 'generateContent'),
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt}]}],
@@ -889,16 +919,30 @@ async function addCompetitor(){
 }
 
 async function fetchChannelInfo(username, category){
-  let avatar='', displayName='@'+username, bio='';
+  const handle = username.replace('@','').trim();
+  let avatar='', displayName='@'+handle, bio='';
   try{
-    const r=await fetch('/api/tiktok',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'channel_info',username})});
+    const r=await fetch('/api/tiktok',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'channel_info', username:handle})
+    });
     const data=await r.json();
-    if(data.ok&&data.channel){
-      avatar=data.channel.avatar||'';
-      displayName=data.channel.displayName||('@'+username);
+    if(data.ok && data.channel){
+      avatar      = data.channel.avatar      || '';
+      displayName = data.channel.displayName || ('@'+handle);
+      bio         = data.channel.bio         || '';
     }
-  }catch(e){}
-  return { handle:'@'+username, displayName, avatar, url:'https://www.tiktok.com/@'+username, category:category||'Ma chaîne', addedAt:new Date().toLocaleDateString('fr-FR') };
+  }catch(e){ console.warn('Channel fetch error:', e); }
+  return {
+    handle:'@'+handle,
+    displayName,
+    avatar,
+    bio,
+    url:'https://www.tiktok.com/@'+handle,
+    category: category || 'Ma chaîne',
+    addedAt: new Date().toLocaleDateString('fr-FR')
+  };
 }
 
 function renderMyChannel(){
@@ -910,18 +954,15 @@ function renderMyChannel(){
     const ch=channels[0];
     el.innerHTML=`<div class="channel-profile-inner">
       <div class="channel-profile-avatar">
-        ${ch.avatar?`<img src="${ch.avatar}" onerror="this.style.display='none'" alt="avatar">`:'<div class="avatar-fallback">'+(ch.displayName||'?')[0].toUpperCase()+'</div>'}
+        ${ch.avatar
+          ? `<img src="${ch.avatar}" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\'avatar-fallback\'>${(ch.displayName||'?')[0].toUpperCase()}</div>'" alt="avatar">`
+          : `<div class="avatar-fallback">${(ch.displayName||'?')[0].toUpperCase()}</div>`}
       </div>
-      <div class="channel-profile-info">
+      <div class="channel-profile-info" style="flex:1">
         <div class="channel-profile-name">${ch.displayName}</div>
         <div class="channel-profile-handle">${ch.handle}</div>
+        ${ch.bio ? `<div class="channel-bio">${ch.bio}</div>` : ''}
         <a href="${ch.url}" target="_blank" class="channel-profile-link">Voir sur TikTok ↗</a>
-      </div>
-      <div class="channel-profile-stats">
-        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">Abonnés</span></div>
-        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">J'aimes</span></div>
-        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">Vidéos</span></div>
-        <div class="cstat"><span class="cstat-val">—</span><span class="cstat-lbl">Abonnements</span></div>
       </div>
     </div>`;
   }
