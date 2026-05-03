@@ -493,3 +493,12 @@
   .channel-profile-stats { gap: 14px; }
   .channel-profile-inner { flex-direction: column; align-items: flex-start; }
 }
+
+/* ─── Bio chaîne ─── */
+.channel-bio {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 6px 0 8px;
+  max-width: 420px;
+}
