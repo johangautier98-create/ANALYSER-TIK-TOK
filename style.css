@@ -1774,12 +1774,15 @@ body.is-analyze-page .content{
 .vz-section-head em{
   margin-left:auto;
   color:#fff;
-  border-radius:999px;
-  padding:7px 11px;
+  border-radius:12px;
+  padding:6px 14px;
   font-style:normal;
-  font-size:12px;
-  font-weight:1000;
+  font-size:15px;
+  font-weight:900;
   white-space:nowrap;
+  min-width:56px;
+  text-align:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.18);
 }
 
 .vz-body{

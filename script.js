@@ -1218,8 +1218,8 @@ function renderReportInto(target, r, thumb, videoName){
   html+=section('🎬','Dynamisme & Visuel',r.dynamisme_visuel,sc.visual||sc.visuel);
   html+=section('📖','Script & Storytelling',r.script_storytelling,sc.coherence);
   html+=section('🚀','Potentiel Viral',r.potentiel_viral,sc.virality||sc.viralite);
-  html+=section('🎵','Audio & Ambiance',r.audio_ambiance,null);
-  html+=section('📣',"Appel à l'action",r.call_to_action,null);
+  html+=section('🎵','Audio & Ambiance',r.audio_ambiance,sc.retention||sc.audio||null);
+  html+=section('📣',"Appel à l'action",r.call_to_action,sc.emotion||sc.magnetisme||null);
   html+=`<section class="vz-section vz-plan"><div class="vz-section-head"><div class="vz-icon">✅</div><div><h3>Plan d'action prioritaire</h3></div></div><div class="vz-plan-grid"><div><b>1. Structure</b><p>${nl(pa.structure||'')}</p></div><div><b>2. Technique</b><p>${nl(pa.technique||'')}</p></div><div><b>3. Stratégie</b><p>${nl(pa.strategie||'')}</p></div></div></section>`;
   if(r.optimizedScript){html+=`<section class="vz-section vz-rewrite"><div class="vz-section-head"><div class="vz-icon">✍️</div><div><h3>Script optimisé</h3></div></div><div class="vz-body">${formatCoachText(r.optimizedScript)}</div></section>`;}
   if(timeline.length){html+=`<section class="vz-section"><div class="vz-section-head"><div class="vz-icon">⏱️</div><div><h3>Moments clés</h3></div></div><div class="vz-timeline">${timeline.map(t=>`<div><b>${esc(Array.isArray(t)?t[0]:'')}</b><p>${nl(Array.isArray(t)?t[1]:t)}</p></div>`).join('')}</div></section>`;}
