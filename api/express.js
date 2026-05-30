@@ -345,11 +345,18 @@ function buildGeminiParts(systemPrompt, userPrompt, frames) {
 }
 
 async function callGemini(model, parts) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  const isOAuth = apiKey.startsWith('AQ.');
+  const url = isOAuth
+    ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+    : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (isOAuth) headers['Authorization'] = `Bearer ${apiKey}`;
 
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       contents: [{ role: 'user', parts }],
       generationConfig: {
