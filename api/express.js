@@ -284,14 +284,6 @@ Réponds exactement avec ce JSON :
 
   "monetizationScore": "nombre réel entre 1 et 10",
   "viralPercent": "nombre réel entre 1 et 100",
-  "watchRateEstimate": "nombre réel entre 1 et 100 (% de spectateurs qui regarderont plus de 50%)",
-  "completionRateEstimate": "nombre réel entre 1 et 100 (% qui regarderont jusqu'à la fin)",
-  "saveRatePotential": "nombre réel entre 1 et 10 (contenu qui donne envie de sauvegarder)",
-  "commentBaitScore": "nombre réel entre 1 et 10 (contenu qui pousse à commenter)",
-  "cliffhangerScore": "nombre réel entre 1 et 10 (donne envie de voir la suite)",
-  "algorithmBoosts": ["action concrète 1 pour maximiser le FYP", "action concrète 2", "action concrète 3"],
-  "competitive_edge": "En quoi cette vidéo se démarque (ou non) des autres créateurs du même style en France en 2025",
-  "next_episode_hook": "Proposition de phrase parfaite pour finir la vidéo et donner envie de voir l'épisode suivant",
 
   "weakMoments": [
     {
