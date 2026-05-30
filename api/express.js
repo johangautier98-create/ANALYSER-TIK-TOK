@@ -110,7 +110,7 @@ Obligation :
 
     } catch (e) {
       lastError = e.message;
-      console.warn('Gemini model failed:', e.message);
+      console.error(`[GEMINI FAIL] ${model}: ${e.message}`);
     }
   }
 
