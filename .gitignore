@@ -1,0 +1,8 @@
+.playwright-mcp/
+.claude/
+*.log
+node_modules/
+*-check.png
+*-full.png
+*-site.png
+ravager-*.png
