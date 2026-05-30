@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>TikTok Analyzer Pro — Patrick Gautier</title>
+
+  <!-- FAVICON -->
+  <link rel="icon" type="image/png" href="./favicon.png?v=3">
+<link rel="icon" type="image/png" href="/favicon.png?v=2000">
+<link rel="apple-touch-icon" href="/icon-192.png?v=2000">
+<link rel="manifest" href="/manifest.json?v=2000">
+<meta name="theme-color" content="#11142b">
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- LOGIN -->
+  <section id="loginScreen" class="login-screen">
+
+    <div class="login-glow login-glow-a"></div>
+    <div class="login-glow login-glow-b"></div>
+
+    <div class="login-card">
+
+      <!-- LOGO -->
+      <img src="./favicon.png?v=3" class="login-logo" alt="TikTokPro">
+
+      <div class="login-badge">TikTok Analyzer Pro</div>
+
+      <h1>Connexion à l’analyseur</h1>
+
+      <p>
+        Connexion serveur Vercel : Gemini analyse la vidéo et génère le rapport expert.
+      </p>
+
+      <div class="api-card">
+        <div class="api-card-head">
+          <div>
+            <span class="api-chip">🔐 Connexion API</span>
+            <h2>Gemini · Serveur Vercel</h2>
+          </div>
+          <span class="api-live" id="apiLive">En attente</span>
+        </div>
+
+
+        <label for="geminiKey">Clé Gemini</label>
+        <div class="input-row">
+          <input id="geminiKey" type="password" placeholder="AIza..." autocomplete="off" />
+          <button type="button" onclick="togglePassword('geminiKey')">Voir</button>
+        </div>
+
+        <button class="primary-btn full" onclick="connectAPIs()">⚡ Connecter les clés</button>
+        <div id="apiStatus" class="status-box">Clés non enregistrées</div>
+      </div>
+
+      <button id="enterButton" class="enter-btn" onclick="enterApp()" disabled>Entrer dans l’application</button>
+      <p class="login-note">La clé Gemini est lue côté serveur Vercel.</p>
+    </div>
+  </section>
+
+  <main id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon brand-logo-box">
+          <img src="fabivon.png" alt="Logo" class="brand-logo" onerror="this.style.display='none'; this.parentElement.textContent='🎬';" />
+        </div>
+        <div>
+          <strong>TikTok<span>Pro</span></strong>
+          <small>Patrick Gautier</small>
+          <em>Analyzer Dashboard</em>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <p>Principal</p>
+        <button class="nav-btn active" data-page="analyze" onclick="switchPage('analyze', this)">📊 Analyse Express</button>
+        <button class="nav-btn" data-page="rushstudio" onclick="switchPage('rushstudio', this)">🎬 Studio Rushs IA</button>
+        <button class="nav-btn" data-page="history" onclick="switchPage('history', this)">📂 Historique <span id="historyCount">0</span></button>
+        <button class="nav-btn" data-page="mychannel" onclick="switchPage('mychannel', this)">📺 Ma Chaîne</button>
+        <button class="nav-btn" data-page="competitors" onclick="switchPage('competitors', this)">🔍 Concurrents</button>
+        <button class="nav-btn" data-page="planner" onclick="switchPage('planner', this)">📅 Planifier mes vidéos</button>
+        <p>Création</p>
+        <button class="nav-btn" data-page="scripts" onclick="switchPage('scripts', this)">✍️ Générateur scripts</button>
+        <button class="nav-btn" data-page="thumbnails" onclick="switchPage('thumbnails', this)">🖼️ Miniatures TikTok</button>
+        <button class="nav-btn" data-page="ideas" onclick="switchPage('ideas', this)">💡 Idées de contenu</button>
+        <button class="nav-btn" data-page="checklist" onclick="switchPage('checklist', this)">✅ Checklist</button>
+      </nav>
+
+      <div class="side-api">
+        <div class="side-api-title">🔐 API connectées</div>
+        <div class="api-line"><span id="serverDot" class="dot"></span> Serveur Vercel <strong id="serverLabel">Auto</strong></div>
+        <div class="api-line">
+          <span id="navApiDot" class="dot" style="background:#f59e0b;transition:background .4s;" title="Vérification..."></span>
+          Gemini <strong id="geminiLabel">Connecté</strong>
+        </div>
+        <button class="mini-btn" onclick="checkGeminiStatus()">🔄 Vérifier la connexion</button>
+      </div>
+    </aside>
+
+    <section class="content">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle"></h1>
+          <p id="pageSub"></p>
+        </div>
+      </header>
+
+      <section id="page-analyze" class="page active">
+        <div class="steps">
+          <div class="step active"><b>1</b><span>Upload vidéo</span></div>
+          <i></i>
+          <div class="step" id="step2"><b>2</b><span>Contexte</span></div>
+          <i></i>
+          <div class="step" id="step3"><b>3</b><span>Rapport</span></div>
+        </div>
+
+        <!-- ONGLETS : Fichier ou Lien TikTok -->
+        <div class="source-tabs">
+          <button class="source-tab active" id="tabFile" onclick="switchSourceTab('file')">📁 Depuis mon ordinateur</button>
+          <button class="source-tab" id="tabUrl" onclick="switchSourceTab('url')">🎵 Lien TikTok / YouTube</button>
+        </div>
+
+        <!-- PANEL FICHIER -->
+        <div id="panelFile">
+        <div id="dropZone" class="drop-zone" onclick="document.getElementById('videoInput').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropVideo(event)">
+          <div class="drop-icon">🎥</div>
+          <h2>Dépose ta vidéo ici</h2>
+          <p>Clique ou glisse-dépose ton fichier vidéo</p>
+          <span>MP4 · MOV · WEBM · AVI · MKV</span>
+        </div>
+        <input id="videoInput" class="hidden-input" type="file" accept="video/*" onchange="pickVideo(this.files[0])" />
+        </div><!-- /panelFile -->
+
+        <!-- PANEL LIEN URL -->
+        <div id="panelUrl" class="hidden">
+          <div class="url-drop-zone">
+            <div style="font-size:42px;margin-bottom:12px">🔗</div>
+            <h2>Colle le lien de ta vidéo TikTok</h2>
+            <p>L'IA va analyser la vidéo directement depuis le lien</p>
+            <div class="url-input-row">
+              <input id="tiktokUrlInput" type="url" placeholder="https://www.tiktok.com/@compte/video/..." autocomplete="off" />
+              <button onclick="loadFromUrl()" class="primary-btn">Charger</button>
+            </div>
+          </div>
+          <div id="urlVideoPreview" class="hidden"></div>
+        </div>
+
+        <div id="videoPreview" class="video-preview hidden">
+          <div class="preview-icon">🎬</div>
+          <div>
+            <strong id="videoName">Aucune vidéo</strong>
+            <small id="videoMeta">—</small>
+          </div>
+          <button onclick="removeVideo()">✕</button>
+        </div>
+
+        <div class="analyze-cta">
+          <div>
+            <strong>⚡ Prêt à analyser ?</strong>
+            <p id="analysisStatus">Dépose d’abord une vidéo.</p>
+          </div>
+          <button id="analyzeBtn" class="primary-btn" onclick="analyzeVideo()" disabled>🚀 Analyser ma vidéo</button>
+        </div>
+
+        <section id="results" class="results hidden"></section>
+      </section>
+
+      <section id="page-history" class="page">
+        <div class="module-head">
+          <h2>📂 Historique Analyse Express</h2>
+          <button class="secondary-btn" onclick="clearHistory()">Vider Analyse Express</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+
+        <div class="module-head rush-history-head">
+          <h2>🎬 Historique Studio Rushs IA</h2>
+          <button class="secondary-btn" onclick="clearRushHistory()">Vider Studio Rushs</button>
+        </div>
+        <div id="rushHistoryList" class="rush-history-list"></div>
+      </section>
+
+      <section id="page-planner" class="page">
+        <div class="module-head"><h2>📅 Planifier mes vidéos</h2><button class="secondary-btn" onclick="fillPlannerFromLast()">Reprendre dernière analyse</button></div>
+        <div class="planner-info">
+          <strong>Important :</strong> ici le planning prépare tes vidéos, titres, hashtags et horaires. La publication automatique TikTok demandera plus tard une connexion officielle TikTok API/OAuth. Pour l'instant, rien ne part automatiquement.
+        </div>
+        <div class="planner-grid">
+          <label>Titre vidéo <input id="plannerTitle" placeholder="Ex : Ça a dégénéré direct…" /></label>
+          <label>Saison <input id="plannerSeason" type="number" value="1" min="1" /></label>
+          <label>Épisode <input id="plannerEpisode" type="number" value="1" min="1" /></label>
+          <label>Date <input id="plannerDate" type="date" /></label>
+          <label>Heure <input id="plannerTime" type="time" value="19:30" /></label>
+          <label>Hook principal <input id="plannerHook" placeholder="Phrase d’ouverture" /></label>
+        </div>
+        <button class="primary-btn" onclick="savePlan()">Enregistrer dans le planning</button>
+        <div id="plannerList" class="planning-list"></div>
+      </section>
+
+      <section id="page-scripts" class="page">
+        <div class="module-head"><h2>✍️ Générateur de script TikTok</h2><button class="secondary-btn" onclick="generateScriptFromLast()">Utiliser dernière analyse</button></div>
+        <div class="script-box">
+          <div class="script-controls">
+            <label>Style du script
+              <select id="scriptStyle">
+                <option value="comedie">Comique marseillais</option>
+                <option value="drama_comique">Drama comique</option>
+                <option value="humour_drama">Humour + tension drama</option>
+                <option value="mystere">Mystère / suspense</option>
+                <option value="clash">Clash drôle mais familial</option>
+              </select>
+            </label>
+            <button class="secondary-btn" onclick="generateScriptVariant()">🔁 Nouvelle version</button>
+          </div>
+          <label>Sujet / idée
+            <textarea id="scriptInput" rows="4" placeholder="Décris la vidéo ou utilise la dernière analyse…"></textarea>
+          </label>
+          <button class="primary-btn" onclick="generateScript()">Générer un script optimisé</button>
+          <div id="scriptOutput" class="generated-output"></div>
+        </div>
+      </section>
+
+      <section id="page-thumbnails" class="page">
+        <div class="module-head"><h2>🖼️ Générateur de miniatures TikTok</h2><button class="secondary-btn" onclick="loadVideoForThumb()">Utiliser la vidéo analysée</button></div>
+        <div class="thumb-layout">
+          <div class="thumb-panel">
+            <h3>1. Source image</h3>
+            <div id="thumbDropZone" class="mini-upload thumb-drop" onclick="document.getElementById('thumbAnyInput').click()" ondragover="thumbDragOver(event)" ondragleave="thumbDragLeave(event)" ondrop="thumbDrop(event)">
+              <strong>🎬 Glisse ici une vidéo OU une image</strong>
+              <span>MP4/MOV pour capturer une frame · PNG/JPG pour créer directement</span>
+            </div>
+            <input id="thumbAnyInput" class="hidden-input" type="file" accept="video/*,image/*" onchange="prepareThumbSource(this.files[0])" />
+            <div class="mini-upload mini-choice" onclick="document.getElementById('thumbVideoInput').click()">🎥 Choisir une vidéo pour récupérer une frame</div>
+            <input id="thumbVideoInput" class="hidden-input" type="file" accept="video/*" onchange="prepareThumbVideo(this.files[0])" />
+            <div class="mini-upload mini-choice" onclick="document.getElementById('thumbImageInput').click()">🖼️ Importer une image PNG/JPG</div>
+            <input id="thumbImageInput" class="hidden-input" type="file" accept="image/*" onchange="prepareThumbImage(this.files[0])" />
+            <video id="thumbVideo" class="hidden" muted playsinline></video>
+            <label class="range-label">Choisir le moment de la vidéo <input id="thumbTime" type="range" min="0" max="100" value="35" oninput="seekThumbFrame()" /></label>
+            <button class="secondary-btn full" onclick="captureThumbFrame()">Capturer cette image</button>
+
+            <h3>2. Style viral</h3>
+            <div class="style-grid">
+              <button class="style-btn active" onclick="setThumbStyle('viral', this)">⚡ Viral choc</button>
+              <button class="style-btn" onclick="setThumbStyle('drama', this)">🔥 Drama</button>
+              <button class="style-btn" onclick="setThumbStyle('clean', this)">✨ Propre</button>
+              <button class="style-btn" onclick="setThumbStyle('mystery', this)">🕵️ Mystère</button>
+              <button class="style-btn" onclick="setThumbStyle('humour', this)">😂 Humour</button>
+            </div>
+
+            <h3>3. Texte</h3>
+            <label>Grand texte <input id="thumbText" value="ÇA A DÉGÉNÉRÉ" oninput="renderThumbnail()" /></label>
+            <label>Petit texte <input id="thumbSubtext" value="Regarde jusqu’à la fin" oninput="renderThumbnail()" /></label>
+            <div class="season-row">
+              <label>Saison <input id="thumbSeason" type="number" value="1" min="1" oninput="renderThumbnail()" /></label>
+              <label>Épisode <input id="thumbEpisode" type="number" value="1" min="1" oninput="renderThumbnail()" /></label>
+            </div>
+            <label>Format
+              <select id="thumbFormat" onchange="renderThumbnail()">
+                <option value="tiktok">TikTok 9:16</option>
+                <option value="youtube">YouTube 16:9</option>
+                <option value="square">Carré 1:1</option>
+              </select>
+            </label>
+            <button class="primary-btn full" onclick="downloadThumbnail()">Télécharger la miniature PNG</button>
+          </div>
+          <div class="thumb-preview-wrap">
+            <canvas id="thumbCanvas" width="1080" height="1920"></canvas>
+            <div class="prompt-card">
+              <h3>Prompt Leonardo conseillé</h3>
+              <p id="leonardoPrompt"></p>
+              <button class="secondary-btn" onclick="copyLeonardoPrompt()">Copier le prompt</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- PAGE STUDIO RUSHS IA -->
+      <section id="page-rushstudio" class="page">
+        <div class="steps rush-main-steps">
+          <div class="step active"><b>1</b><span>Upload rush</span></div>
+          <i></i>
+          <div class="step"><b>2</b><span>Analyse IA</span></div>
+          <i></i>
+          <div class="step"><b>3</b><span>Clips prêts</span></div>
+        </div>
+
+        <div class="rush-hero rush-hero-premium">
+          <div>
+            <span class="rush-badge">Module long format</span>
+            <h2>🎬 Studio Rushs IA</h2>
+            <p>Dépose une vidéo longue : Gemini repère les meilleurs moments, les passages drôles, les scènes à tension et les extraits qui peuvent devenir plusieurs TikTok prêts à monter.</p>
+          </div>
+          <div class="rush-hero-icon">🎞️</div>
+        </div>
+
+        <div class="rush-intro-grid">
+          <div class="rush-intro-card">
+            <b>🔥 Objectif</b>
+            <span>Transformer un long rush en plusieurs idées de clips courts.</span>
+          </div>
+          <div class="rush-intro-card">
+            <b>✂️ Sortie attendue</b>
+            <span>Début, fin, hook, zooms, coupes et titre conseillé.</span>
+          </div>
+          <div class="rush-intro-card">
+            <b>🎯 Pour Patrick</b>
+            <span>Gagner du temps et savoir exactement quoi monter.</span>
+          </div>
+        </div>
+
+        <div class="rush-layout">
+          <div class="rush-upload-card rush-drop-zone" id="rushDropZone" onclick="document.getElementById('rushVideoInput').click()" ondragover="rushDragOver(event)" ondragleave="rushDragLeave(event)" ondrop="rushDropVideo(event)">
+            <div class="rush-upload-icon">📁</div>
+            <h3>Dépose ta vidéo longue ici</h3>
+            <p>Clique ou glisse-dépose ton fichier. Le module est prévu pour les rushs de chantier, scènes complètes, impro, drama, humour ou épisode entier.</p>
+            <small>MP4 · MOV · WEBM · AVI · MKV — idéalement 1080p. L’IA analyse des images clés réparties sur toute la vidéo.</small>
+          </div>
+          <input id="rushVideoInput" class="hidden-input" type="file" accept="video/*" onchange="pickRushVideo(this.files[0])" />
+
+          <div class="rush-side-panel">
+            <div class="rush-info-card rush-selected hidden" id="rushVideoPreview">
+              <h3>🎥 Vidéo chargée</h3>
+              <strong id="rushVideoName">—</strong>
+              <p id="rushVideoMeta">—</p>
+              <button class="secondary-btn" onclick="removeRushVideo()">Changer la vidéo</button>
+            </div>
+
+            <div class="rush-info-card">
+              <h3>🔥 Ce que Gemini va chercher</h3>
+              <ul>
+                <li>Moments drôles ou inattendus</li>
+                <li>Réactions fortes et conflit</li>
+                <li>Passages parfaits pour un bon hook</li>
+                <li>Débuts et fins de clips exploitables</li>
+                <li>Mini-histoires de 1 à 2 minutes</li>
+              </ul>
+            </div>
+
+            <button id="rushAnalyzeBtn" class="primary-btn full" onclick="analyzeRushVideo()" disabled>🚀 Analyser mes rushs</button>
+            <div id="rushStatus" class="rush-status">Dépose une vidéo longue pour commencer.</div>
+          </div>
+        </div>
+
+        <div id="rushResults" class="rush-results hidden"></div>
+
+        <div class="rush-roadmap">
+          <h3>🧠 Comment lire le résultat</h3>
+          <p>Après l’analyse, tu obtiens une liste de clips proposés avec un score, une accroche, les coupes à faire et les conseils de montage pour TikTok.</p>
+
+          <div class="rush-steps-grid">
+            <div><b>1</b><span>Analyse complète de la vidéo</span></div>
+            <div><b>2</b><span>Détection des meilleurs moments</span></div>
+            <div><b>3</b><span>Proposition de clips de 1 à 2 minutes</span></div>
+            <div><b>4</b><span>Hooks, zooms, titres et plan de montage</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE MA CHAINE -->
+      <section id="page-mychannel" class="page">
+        <div class="module-head">
+          <h2>📺 Ma Chaîne TikTok</h2>
+          <button class="secondary-btn" onclick="addMyChannel()">+ Ajouter / Changer ma chaîne</button>
+        </div>
+        <div id="myChannelCard" class="channel-profile-card">
+          <div class="no-channel-msg">
+            <p>👆 Clique sur "Ajouter / Changer ma chaîne" pour configurer ton compte TikTok.</p>
+          </div>
+        </div>
+        <div class="module-head" style="margin-top:28px">
+          <h2>📊 Mes vidéos analysées</h2>
+        </div>
+        <div id="myChannelHistory" class="history-list"></div>
+      </section>
+
+      <!-- PAGE CONCURRENTS -->
+      <section id="page-competitors" class="page">
+        <div class="module-head">
+          <h2>🔍 Chaînes concurrentes</h2>
+        </div>
+        <div class="competitor-add-bar">
+          <input id="competitorInput" type="text" placeholder="@nomduconcurrent" autocomplete="off" />
+          <select id="competitorCategory">
+            <option value="Famille/Drama">Famille / Drama</option>
+            <option value="Lifestyle">Lifestyle</option>
+            <option value="Humour">Humour</option>
+            <option value="Couple">Couple</option>
+            <option value="Autre">Autre</option>
+          </select>
+          <button class="primary-btn" onclick="addCompetitor()">Ajouter</button>
+        </div>
+        <div id="competitorList" class="competitor-list"></div>
+      </section>
+
+      <section id="page-ideas" class="page"><div class="empty-card"><h2>💡 Idées de contenu</h2><p>Banque d’idées pour vidéos famille, drama, humour et storytime.</p><div id="ideasList" class="pill-list"></div></div></section>
+      <section id="page-checklist" class="page"><div class="empty-card"><h2>✅ Checklist TikTok</h2><ul><li>Hook fort dans les 2 premières secondes</li><li>Relance visuelle vers 8–12 secondes</li><li>Relance émotionnelle au milieu</li><li>Phrase de fin qui pousse au commentaire</li><li>Miniature lisible en moins d’une seconde</li></ul></div></section>
+    </section>
+  </main>
+
+  <!-- MODAL OVERLAY RAPPORT -->
+  <div id="reportModal" class="report-modal hidden">
+    <div class="report-modal-backdrop" onclick="closeReportModal()"></div>
+    <div class="report-modal-content">
+      <div class="report-modal-header">
+        <div>
+          <span id="modalVideoTitle" style="font-weight:800;font-size:16px">Rapport</span>
+          <div id="modalVideoMeta" style="font-size:12px;color:#888;margin-top:3px"></div>
+        </div>
+        <button onclick="closeReportModal()" class="secondary-btn">✕ Fermer</button>
+      </div>
+      <div id="reportModalBody" class="report-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT CHAINE -->
+  <div id="channelModal" class="report-modal hidden">
+    <div class="report-modal-backdrop" onclick="closeChannelModal()"></div>
+    <div class="report-modal-content" style="max-width:480px">
+      <div class="report-modal-header">
+        <strong>Ajouter une chaîne TikTok</strong>
+        <button onclick="closeChannelModal()" class="secondary-btn">✕</button>
+      </div>
+      <div style="padding:24px">
+        <label style="display:block;font-weight:700;margin-bottom:8px">Nom de la chaîne (@username)</label>
+        <div style="display:flex;gap:10px">
+          <input id="channelModalInput" type="text" placeholder="@vevoir" style="flex:1;border:1.5px solid #dde1f0;border-radius:12px;padding:11px 14px;font-family:inherit;font-size:14px;outline:none" autocomplete="off" />
+          <button class="primary-btn" onclick="confirmAddChannel()">Confirmer</button>
+        </div>
+        <label style="display:block;font-weight:700;margin:14px 0 8px">Logo/avatar de la chaîne (optionnel mais conseillé)</label>
+        <input id="channelAvatarInput" type="file" accept="image/*" style="width:100%;border:1.5px solid #dde1f0;border-radius:12px;padding:10px;background:#fff" />
+        <label style="display:block;font-weight:700;margin:14px 0 8px">Bio courte (optionnel)</label>
+        <textarea id="channelBioInput" rows="3" placeholder="Ex : Feuilleton marseillais, humour, chantier, Momo…" style="width:100%;border:1.5px solid #dde1f0;border-radius:12px;padding:11px 14px;font-family:inherit;font-size:14px;outline:none"></textarea>
+        <div id="channelModalStatus" style="margin-top:12px;font-size:13px;color:#888"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EPISODE RUSH -->
+  <div id="rushEpisodeModal" class="report-modal hidden">
+    <div class="report-modal-backdrop" onclick="closeRushEpisodeModal()"></div>
+    <div class="report-modal-content" style="max-width:720px">
+      <div class="report-modal-header">
+        <div>
+          <span id="rushModalEpLabel" style="font-weight:800;font-size:16px">Épisode</span>
+          <div id="rushModalEpMeta" style="font-size:12px;color:#888;margin-top:3px"></div>
+        </div>
+        <button onclick="closeRushEpisodeModal()" class="secondary-btn">✕ Fermer</button>
+      </div>
+      <div id="rushEpisodeModalBody" class="report-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
