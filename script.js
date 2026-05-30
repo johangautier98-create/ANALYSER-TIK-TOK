@@ -1003,8 +1003,98 @@ async function callGeminiReport(geminiKey, ctx, visionAnalysis){
 }
 
 function buildUltraPrompt(ctx, visionAnalysis){
-  const vision=visionAnalysis?'\n\nANALYSE VISUELLE:\n'+visionAnalysis+'\n':'';
-  return 'Tu es un expert TikTok senior ultra-critique.\n\nVIDEO:\n- Nom: '+ctx.videoName+'\n- Type: '+ctx.contentType+'\n- Hook: "'+ctx.hook+'"\n- Duree: ~'+ctx.duration+'s'+vision+'\n\nJSON uniquement:\n{"score_global":<1.0-10.0>,"scores":{"hook":<1-10>,"visuel":<1-10>,"viralite":<1-10>,"coherence":<1-10>,"retention":<1-10>,"magnetisme":<1-10>},"potentiel":"<phrase>","plan_action":{"structure":"<correction>","technique":"<correction>","strategie":"<strategie>"},"analyse_hook":"<analyse>","dynamisme_visuel":"<analyse>","script_storytelling":"<analyse>","potentiel_viral":"<analyse>","audio_ambiance":"<analyse>","call_to_action":"<analyse>","timeline":[["0-5s","<conseil>"]],"hooks":["<h1>","<h2>","<h3>"],"titres":["<t1>","<t2>"],"hashtags":["#tag1","#tag2"],"pub_heure":"<ex: Vendredi 19h30>","pub_raison":"<pourquoi>","miniature":{"texte":"<TEXTE>","couleurs":"<palette>","scene":"<scene>"},"transcription":"<transcription>","beginner_tips":["<c1>","<c2>"]}';
+  const vision = visionAnalysis ? '\n\n## ANALYSE VISUELLE GEMINI (ce que tu vois réellement dans la vidéo):\n' + visionAnalysis + '\n' : '';
+  const dur = ctx.duration || 30;
+  const segments = dur <= 15 ? [['0-3s','Hook'],['3-10s','Corps'],['10-'+dur+'s','CTA']]
+    : dur <= 30 ? [['0-3s','Hook'],['3-8s','Accroche'],['8-20s','Corps'],['20-'+dur+'s','CTA']]
+    : [['0-3s','Hook'],['3-8s','Accroche'],['8-15s','Développement 1'],['15-25s','Développement 2'],['25-35s','Climax'],['35-'+dur+'s','CTA']];
+
+  return `Tu es un stratège TikTok expert avec 8 ans d'expérience en growth marketing, analyse vidéo et algorithme TikTok. Tu as analysé plus de 50 000 vidéos virales. Tu connais parfaitement l'algorithme TikTok 2025-2026 (FYP scoring, watch rate, completion rate, share trigger, save rate, comment bait).
+
+## DONNÉES DE LA VIDÉO À ANALYSER:
+- Titre/Nom: ${ctx.videoName}
+- Type de contenu: ${ctx.contentType}
+- Hook d'ouverture: "${ctx.hook}"
+- Durée: ~${dur} secondes
+- Segments temporels détectés: ${segments.map(s=>s[0]+' ('+s[1]+')').join(', ')}
+${vision}
+
+## TA MISSION:
+Analyse cette vidéo comme si tu devais la présenter à un brand manager exigeant. Sois précis, critique, actionnable. Chaque score doit être justifié. Chaque conseil doit être immédiatement applicable.
+
+## CRITÈRES D'ÉVALUATION ALGORITHME TIKTOK 2025-2026:
+- **Watch Rate** (% spectateurs qui regardent >50%) — facteur #1 du FYP
+- **Completion Rate** (% qui regardent jusqu'à la fin) — facteur #2
+- **Hook Power** (les 3 premières secondes définissent 80% du succès)
+- **Pattern Interrupt** (ruptures visuelles/sonores qui stoppent le scroll)
+- **Save Rate** (contenu utile = sauvegarde = boost algorithme)
+- **Share Trigger** (émotion forte : surprise, humour, utilité, polémique)
+- **Comment Bait** (question, débat, ou contenu qui donne envie de répondre)
+- **Audio Strategy** (son tendance vs original, timing musical)
+
+Retourne UNIQUEMENT ce JSON (pas de texte avant ou après):
+{
+  "score_global": <1.0-10.0, une décimale, sois exigeant — un 9 est rare>,
+  "verdict": "<1 phrase impactante qui résume tout : ce qui sauve ou coule cette vidéo>",
+  "potentiel": "<estimation du reach possible : locale/nationale/virale, avec raison>",
+  "scores": {
+    "hook": <1-10>,
+    "visuel": <1-10>,
+    "viralite": <1-10>,
+    "coherence": <1-10>,
+    "retention": <1-10>,
+    "magnetisme": <1-10>,
+    "watch_rate_estime": <1-10>,
+    "save_potential": <1-10>,
+    "share_trigger": <1-10>
+  },
+  "scores_justification": {
+    "hook": "<pourquoi ce score : qu'est-ce qui accroche ou non dans les 3 premières secondes>",
+    "watch_rate_estime": "<estimation du % de spectateurs qui iront à 50% et pourquoi>",
+    "share_trigger": "<quelle émotion déclencherait le partage, ou ce qui l'empêche>"
+  },
+  "analyse_hook": "<analyse détaillée des 3 premières secondes : formule utilisée, efficacité, comparaison avec hooks viraux similaires>",
+  "pattern_interrupt": "<y a-t-il des ruptures visuelles/sonores qui stoppent le scroll ? À quelle seconde ? Comment améliorer ?>",
+  "dynamisme_visuel": "<rythme des cuts, mouvements de caméra, textes à l'écran, transitions — impact sur la rétention>",
+  "script_storytelling": "<structure narrative : y a-t-il un arc (problème→solution, avant→après, mystère→révélation) ? Efficacité ?>",
+  "potentiel_viral": "<les 3 éléments qui pourraient propulser cette vidéo + les 3 freins principaux>",
+  "audio_ambiance": "<musique/son : tendance ou original, timing avec l'action, impact émotionnel>",
+  "call_to_action": "<le CTA existe-t-il, est-il efficace, à quelle seconde apparaît-il, comment l'améliorer ?>",
+  "algorithme_tips": "<3 actions spécifiques pour maximiser le FYP score de cette vidéo précisément>",
+  "plan_action": {
+    "urgence": "<ce qu'il faut corriger AVANT de publier>",
+    "structure": "<amélioration de la structure narrative>",
+    "technique": "<amélioration technique : éclairage, cadrage, montage, son>",
+    "strategie": "<stratégie de publication et de croissance sur ce type de contenu>"
+  },
+  "timeline": ${JSON.stringify(segments.map(s=>[s[0],'<conseil précis pour ce segment : que montrer/dire/faire exactement>']).slice(0,6))},
+  "hooks": [
+    "<hook alternatif 1 : commence par une question choc ou un chiffre surprenant>",
+    "<hook alternatif 2 : commence par une affirmation controversée ou contre-intuitive>",
+    "<hook alternatif 3 : commence par 'La plupart des gens ne savent pas que...' ou équivalent>"
+  ],
+  "titres": [
+    "<titre 1 : format curiosity gap — crée un manque d'information>",
+    "<titre 2 : format résultat concret — chiffre ou transformation visible>",
+    "<titre 3 : format polémique douce — donne envie de débattre>"
+  ],
+  "hashtags": ["<#hashtag_niche_fort>","<#hashtag_tendance>","<#hashtag_contenu>","<#hashtag_communauté>","<#hashtag_viral_booster>"],
+  "pub_heure": "<jour + heure précise : ex Mardi 19h30>",
+  "pub_raison": "<pourquoi cette heure : comportement audience cible, pic d'activité algorithmique>",
+  "miniature": {
+    "texte": "<TEXTE EN MAJUSCULES CHOC, max 4 mots>",
+    "couleurs": "<palette : fond + texte + accent, codes hex si possible>",
+    "scene": "<quelle frame de la vidéo utiliser et pourquoi — émotion visible, regard caméra, moment fort>"
+  },
+  "transcription": "<transcription mot à mot de ce qui est dit/entendu dans la vidéo>",
+  "beginner_tips": [
+    "<conseil débutant 1 : simple, immédiatement applicable>",
+    "<conseil débutant 2 : erreur courante à éviter>",
+    "<conseil débutant 3 : quick win pour ce type de vidéo>"
+  ],
+  "concurrent_analysis": "<ce que ferait un créateur top 1% de cette niche différemment sur exactement ce sujet>",
+  "retention_curve": "<prédiction de la courbe de rétention : à quelle seconde les gens décrochent et pourquoi>"
+}`;
 }
 
 function normalizeReport(r, base){
