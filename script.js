@@ -1,7 +1,7 @@
 // =============================================================================
-// CLÉ API INTÉGRÉE — plus besoin de la saisir
+// CLÉ API — gérée côté serveur Vercel
 // =============================================================================
-const DEFAULT_GEMINI_KEY = 'AIzaSyA9-IOsGsInTo9e6XFLWaIA4p6QleXivOI';
+const DEFAULT_GEMINI_KEY = 'SERVER_ENV';
 
 // =============================================================================
 // VARIABLES GLOBALES

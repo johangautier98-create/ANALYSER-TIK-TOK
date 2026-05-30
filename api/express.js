@@ -75,7 +75,6 @@ async function analyzeWithGemini({ frames, fileName, durationGoal, postRhythm, m
   const parts = buildGeminiParts(systemPrompt, userPrompt, frames);
 
   let lastError = '';
-  const allErrors = {};
 
   for (const model of GEMINI_MODELS) {
     try {
@@ -111,12 +110,11 @@ Obligation :
 
     } catch (e) {
       lastError = e.message;
-      allErrors[model] = e.message.substring(0, 120);
-      console.error(`[GEMINI FAIL] ${model}: ${e.message}`);
+      console.warn('Gemini model failed:', model, e.message);
     }
   }
 
-  throw new Error('Tous modeles echoues: ' + JSON.stringify(allErrors));
+  throw new Error('Gemini impossible : ' + lastError);
 }
 
 function buildExpressSystemPrompt() {
