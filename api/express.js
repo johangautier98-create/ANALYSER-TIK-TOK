@@ -354,7 +354,9 @@ async function callGemini(model, parts) {
     : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const headers = { 'Content-Type': 'application/json' };
-  if (isOAuth) headers['Authorization'] = `Bearer ${apiKey}`;
+  if (isOAuth) {
+    headers['x-goog-api-key'] = apiKey;
+  }
 
   const r = await fetch(url, {
     method: 'POST',
